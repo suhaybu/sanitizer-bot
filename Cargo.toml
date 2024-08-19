@@ -6,5 +6,11 @@ edition = "2021"
 [dependencies]
 dotenvy = "0.15"
 poise = "0.6"
+regex = "1.10.6"
 serenity = "0.12"
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
+
+# [profile.release]
+# strip = true      # Automatically strip symbols from the binary.
+# lto = "fat"
+# codegen-units = 1
