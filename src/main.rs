@@ -6,6 +6,7 @@ use config::framework::create_framework;
 
 mod commands;
 mod config;
+mod logic;
 
 #[tokio::main]
 async fn main() {
