@@ -1,6 +1,27 @@
 // Todo
 
-use regex::{Regex, RegexSet};
+use std::sync::LazyLock;
+
+use regex::{Regex, RegexSet, RegexSetBuilder};
+
+const INSTAGRAM_PATTERN: &str =
+    r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reel|p)(?P<data>/[^/\s?]+)";
+
+const TIKTOK_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com/[^/]+/?\S*";
+
+const TWITTER_PATTERN: &str =
+    r"(?i)https?://(www\.)?(twitter|x)\.com/(?P<username>\w+)(?P<data>/status/[^?\s]*)";
+
+static PATTERNS: LazyLock<RegexSet> = LazyLock::new(|| {
+    RegexSetBuilder::new([TIKTOK_PATTERN, INSTAGRAM_PATTERN, TWITTER_PATTERN])
+        .case_insensitive(true)
+        .multi_line(true)
+        .build()
+        .unwrap_or_else(|err| {
+            eprintln!("Failed to build RegexSet PATTERNS: {err}");
+            panic!("RegexSet initialization failed")
+        })
+});
 
 #[derive(Debug, PartialEq)]
 enum URLMatchType {
@@ -20,14 +41,7 @@ enum URLMatchType {
 }
 
 fn get_match(input: &str) -> Option<URLMatchType> {
-    let tiktok_pattern = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com/[^/]+/?\S*";
-    let instagram_pattern =
-        r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reel|p)(?P<data>/[^/\s?]+)";
-    let twitter_pattern =
-        r"(?i)https?://(www\.)?(twitter|x)\.com/(?P<username>\w+)(?P<data>/status/[^?\s]*)";
-
-    let patterns = RegexSet::new(&[tiktok_pattern, instagram_pattern, twitter_pattern]).unwrap();
-    let matches = patterns.matches(input);
+    let matches = PATTERNS.matches(input);
 
     let matched_index = match matches.iter().next() {
         Some(index) => index,
@@ -36,7 +50,7 @@ fn get_match(input: &str) -> Option<URLMatchType> {
 
     match matched_index {
         0 => {
-            let re = Regex::new(tiktok_pattern).unwrap();
+            let re = Regex::new(TIKTOK_PATTERN).unwrap();
             return re.captures(input).map(|captures| URLMatchType::Tiktok {
                 url: captures.get(0).unwrap().as_str().to_string(),
             });
