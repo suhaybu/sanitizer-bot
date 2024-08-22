@@ -23,7 +23,7 @@ static PATTERNS: LazyLock<RegexSet> = LazyLock::new(|| {
 });
 
 #[derive(Debug, PartialEq)]
-enum Website {
+enum ParsedURL {
     Tiktok {
         url: String,
     },
@@ -39,21 +39,8 @@ enum Website {
     },
 }
 
-#[derive(Debug, PartialEq, Default)]
-struct URLMatch {
-    tiktok: Option<Website>,
-    instagram: Option<Website>,
-    twitter: Option<Website>,
-}
-
-fn get_match(input: &str) -> Option<URLMatch> {
+fn get_match(input: &str) -> Option<ParsedURL> {
     let matches = PATTERNS.matches_at(input, 0);
-
-    let mut response = URLMatch {
-        tiktok: None,
-        instagram: None,
-        twitter: None,
-    };
 
     for index in matches.iter() {
         match index {
@@ -62,18 +49,16 @@ fn get_match(input: &str) -> Option<URLMatch> {
                 #[cfg(test)]
                 println!("Accessed branch 1");
                 let re = Regex::new(TIKTOK_PATTERN).unwrap();
-                let captures = re.captures(input).unwrap();
-                response.tiktok = Some(Website::Tiktok {
-                    url: (captures.get(0).unwrap().as_str().to_string()),
-                })
+                return re.captures(input).map(|captures| ParsedURL::Tiktok {
+                    url: captures.get(0).unwrap().as_str().to_string(),
+                });
             }
             1 => {
                 // Instagram match
                 #[cfg(test)]
                 println!("Accessed branch 2");
                 let re = Regex::new(INSTAGRAM_PATTERN).unwrap();
-                let captures = re.captures(input).unwrap();
-                response.instagram = Some(Website::Instagram {
+                return re.captures(input).map(|captures| ParsedURL::Instagram {
                     url: captures.get(0).unwrap().as_str().to_string(),
                     post_type: captures.name("type").unwrap().as_str().to_string(),
                     data: captures.name("data").unwrap().as_str().to_string(),
@@ -84,17 +69,16 @@ fn get_match(input: &str) -> Option<URLMatch> {
                 #[cfg(test)]
                 println!("Accessed branch 3");
                 let re = Regex::new(TWITTER_PATTERN).unwrap();
-                let captures = re.captures(input).unwrap();
-                response.twitter = Some(Website::Twitter {
+                return re.captures(input).map(|captures| ParsedURL::Twitter {
                     url: captures.get(0).unwrap().as_str().to_string(),
                     username: captures.name("username").unwrap().as_str().to_string(),
                     data: captures.name("data").unwrap().as_str().to_string(),
                 });
             }
-            _ => {}
-        }
+            _ => return None,
+        };
     }
-    return Some(response);
+    None
 }
 
 #[cfg(test)]
@@ -102,15 +86,14 @@ mod tests {
     use super::*;
 
     #[test]
+    // TODO: The / in the end of the input URL mirrors the output URL.
+    // 		 Need to standerdize output regardless of input
     fn test_tiktok_url() {
         let matches = get_match("https://vt.tiktok.com/ZSYXeWygm/");
         assert_eq!(
             matches,
-            Some(URLMatch {
-                tiktok: Some(Website::Tiktok {
-                    url: "https://vt.tiktok.com/ZSYXeWygm/".to_string(),
-                }),
-                ..Default::default()
+            Some(ParsedURL::Tiktok {
+                url: ("https://vt.tiktok.com/ZSYXeWygm/".to_string())
             })
         );
     }
@@ -120,14 +103,11 @@ mod tests {
         let matches = get_match("https://instagram.com/p/CMeJMFBs66n/");
         assert_eq!(
             matches,
-            Some(URLMatch {
-                instagram: Some(Website::Instagram {
-                    url: "https://instagram.com/p/CMeJMFBs66n".to_string(),
-                    post_type: "p".to_string(),
-                    data: "/CMeJMFBs66n".to_string(),
-                }),
-                ..Default::default()
-            })
+            Some(ParsedURL::Instagram {
+                url: "https://instagram.com/p/CMeJMFBs66n".to_string(),
+                post_type: "p".to_string(),
+                data: "/CMeJMFBs66n".to_string(),
+            }),
         );
     }
 
@@ -136,14 +116,11 @@ mod tests {
         let matches = get_match("https://www.instagram.com/reel/C6lmbgLLflh/");
         assert_eq!(
             matches,
-            Some(URLMatch {
-                instagram: Some(Website::Instagram {
-                    url: "https://www.instagram.com/reel/C6lmbgLLflh".to_string(),
-                    post_type: "reel".to_string(),
-                    data: "/C6lmbgLLflh".to_string(),
-                }),
-                ..Default::default()
-            })
+            Some(ParsedURL::Instagram {
+                url: "https://www.instagram.com/reel/C6lmbgLLflh".to_string(),
+                post_type: "reel".to_string(),
+                data: "/C6lmbgLLflh".to_string(),
+            }),
         );
     }
 
@@ -152,14 +129,11 @@ mod tests {
         let matches = get_match("https://x.com/loltyler1/status/179560257244486sf33");
         assert_eq!(
             matches,
-            Some(URLMatch {
-                twitter: Some(Website::Twitter {
-                    url: "https://x.com/loltyler1/status/179560257244486sf33".to_string(),
-                    username: "loltyler1".to_string(),
-                    data: "/status/179560257244486sf33".to_string(),
-                }),
-                ..Default::default()
-            })
+            Some(ParsedURL::Twitter {
+                url: "https://x.com/loltyler1/status/179560257244486sf33".to_string(),
+                username: "loltyler1".to_string(),
+                data: "/status/179560257244486sf33".to_string(),
+            }),
         );
     }
 
@@ -168,14 +142,11 @@ mod tests {
         let matches = get_match("http://www.twitter.com/rit_chill/status/1756388311445221859");
         assert_eq!(
             matches,
-            Some(URLMatch {
-                twitter: Some(Website::Twitter {
-                    url: "http://www.twitter.com/rit_chill/status/1756388311445221859".to_string(),
-                    username: "rit_chill".to_string(),
-                    data: "/status/1756388311445221859".to_string(),
-                }),
-                ..Default::default()
-            })
+            Some(ParsedURL::Twitter {
+                url: "http://www.twitter.com/rit_chill/status/1756388311445221859".to_string(),
+                username: "rit_chill".to_string(),
+                data: "/status/1756388311445221859".to_string(),
+            }),
         );
     }
 }
