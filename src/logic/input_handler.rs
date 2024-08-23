@@ -2,7 +2,7 @@
 
 use std::sync::LazyLock;
 
-use regex::{Regex, RegexSet, RegexSetBuilder};
+use regex::{Regex, RegexSet, RegexSetBuilder, SetMatches};
 
 const TIKTOK_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com/[^/]+/?\S*";
 const INSTAGRAM_PATTERN: &str =
@@ -39,46 +39,61 @@ enum ParsedURL {
     },
 }
 
-fn get_match(input: &str) -> Option<ParsedURL> {
-    let matches = PATTERNS.matches_at(input, 0);
+fn get_response() -> String {
+    todo!()
+}
 
-    for index in matches.iter() {
-        match index {
-            0 => {
-                // Tiktok match
-                #[cfg(test)]
-                println!("Accessed branch 1");
-                let re = Regex::new(TIKTOK_PATTERN).unwrap();
-                return re.captures(input).map(|captures| ParsedURL::Tiktok {
-                    url: captures.get(0).unwrap().as_str().to_string(),
-                });
-            }
-            1 => {
-                // Instagram match
-                #[cfg(test)]
-                println!("Accessed branch 2");
-                let re = Regex::new(INSTAGRAM_PATTERN).unwrap();
-                return re.captures(input).map(|captures| ParsedURL::Instagram {
-                    url: captures.get(0).unwrap().as_str().to_string(),
-                    post_type: captures.name("type").unwrap().as_str().to_string(),
-                    data: captures.name("data").unwrap().as_str().to_string(),
-                });
-            }
-            2 => {
-                // Twitter match
-                #[cfg(test)]
-                println!("Accessed branch 3");
-                let re = Regex::new(TWITTER_PATTERN).unwrap();
-                return re.captures(input).map(|captures| ParsedURL::Twitter {
-                    url: captures.get(0).unwrap().as_str().to_string(),
-                    username: captures.name("username").unwrap().as_str().to_string(),
-                    data: captures.name("data").unwrap().as_str().to_string(),
-                });
-            }
-            _ => return None,
-        };
+fn find_matches(input: &str) -> Option<Vec<u8>> {
+    let matches = PATTERNS.matches_at(input, 0);
+    if matches.matched_any() {
+        let mut response = Vec::new();
+
+        let mut i: u8 = 0;
+        for match_index in matches.iter() {
+            response.push(match_index as u8);
+            i += 1;
+        }
+        Some(response)
+    } else {
+        None
     }
-    None
+}
+
+fn get_parsed_url(input: &str, match_index: u8) -> Option<ParsedURL> {
+    match match_index {
+        0 => {
+            // Tiktok match
+            #[cfg(test)]
+            println!("Accessed branch 1");
+            let re = Regex::new(TIKTOK_PATTERN).unwrap();
+            return re.captures(input).map(|captures| ParsedURL::Tiktok {
+                url: captures.get(0).unwrap().as_str().to_string(),
+            });
+        }
+        1 => {
+            // Instagram match
+            #[cfg(test)]
+            println!("Accessed branch 2");
+            let re = Regex::new(INSTAGRAM_PATTERN).unwrap();
+            return re.captures(input).map(|captures| ParsedURL::Instagram {
+                url: captures.get(0).unwrap().as_str().to_string(),
+                post_type: captures.name("type").unwrap().as_str().to_string(),
+                data: captures.name("data").unwrap().as_str().to_string(),
+            });
+        }
+        2 => {
+            // Twitter match
+            #[cfg(test)]
+            println!("Accessed branch 3");
+            let re = Regex::new(TWITTER_PATTERN).unwrap();
+            return re.captures(input).map(|captures| ParsedURL::Twitter {
+                url: captures.get(0).unwrap().as_str().to_string(),
+                username: captures.name("username").unwrap().as_str().to_string(),
+                data: captures.name("data").unwrap().as_str().to_string(),
+            });
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]
