@@ -1,5 +1,5 @@
 use super::{Data, Error};
-use crate::commands::age::age;
+use crate::{commands::age::age, event_handler};
 use poise::{Framework, FrameworkOptions};
 
 // pub fn get_options() -> Result<FrameworkOptions<Data, Error>, Error> {
@@ -16,6 +16,9 @@ pub fn create_framework() -> Result<Framework<Data, Error>, Error> {
 
     let framework = Framework::builder()
         .options(FrameworkOptions {
+            event_handler: |ctx, event, framework, data| {
+                Box::pin(event_handler(ctx, event, framework, data))
+            },
             commands: my_commands,
             ..Default::default()
         })
