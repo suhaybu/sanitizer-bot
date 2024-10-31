@@ -28,6 +28,10 @@ enum ParsedURL {
         url: String,
         username: String,
     },
+    InstagramNew {
+        url: String,
+        username: String,
+    },
     Instagram {
         url: String,
         post_type: String,
