@@ -1,1 +1,2 @@
-pub mod events;
+pub mod discord;
+pub mod regex;
