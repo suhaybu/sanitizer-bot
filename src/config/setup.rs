@@ -6,7 +6,7 @@ use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub fn init() -> Result<()> {
     setup_logging()?;
-    load_environment()?;
+    dotenv().expect("Critical Error: Failed to load .env file");
     debug!("Initialization complete");
     Ok(())
 }
@@ -23,11 +23,5 @@ fn setup_logging() -> Result<()> {
 
     subscriber.init();
     debug!("Logging initialized");
-    Ok(())
-}
-
-fn load_environment() -> Result<()> {
-    dotenv().expect("Critical Error: Failed to load .env file");
-    debug!("Environment variables loaded");
     Ok(())
 }
