@@ -1,7 +1,7 @@
 use crate::Data;
 use anyhow::Error;
 use poise::serenity_prelude as serenity;
-use tracing::debug;
+use tracing::info;
 
 pub async fn events(
     ctx: &serenity::Context,
@@ -11,7 +11,7 @@ pub async fn events(
 ) -> Result<(), Error> {
     match event {
         serenity::FullEvent::Ready { data_about_bot, .. } => {
-            debug!("{:?} App is Online", data_about_bot.user.name)
+            info!("🤖 {:?} is Online", data_about_bot.user.name)
         }
         serenity::FullEvent::Message { new_message } => {
             handle_message(ctx, new_message).await?;
