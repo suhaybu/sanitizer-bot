@@ -1,4 +1,3 @@
-// src/config/setup.rs
 use anyhow::Result;
 use dotenvy::dotenv;
 use tracing::debug;
@@ -12,8 +11,9 @@ pub fn init() -> Result<()> {
 }
 
 fn setup_logging() -> Result<()> {
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::try_new("info,serenity=warn").expect("Invalid filter"));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::try_new("info,serenity=warn").expect("Invalid default filter")
+    });
 
     tracing_subscriber::fmt()
         .with_env_filter(filter)
