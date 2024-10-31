@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 use std::sync::LazyLock;
 
-use regex::{Regex, RegexSet, RegexSetBuilder, SetMatches};
+use regex::{Regex, RegexSet, RegexSetBuilder};
 
 const TIKTOK_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com/[^/]+/?\S*";
 const INSTAGRAM_PATTERN: &str =
