@@ -26,6 +26,7 @@ static PATTERNS: LazyLock<RegexSet> = LazyLock::new(|| {
 enum ParsedURL {
     Tiktok {
         url: String,
+        username: String,
     },
     Instagram {
         url: String,
