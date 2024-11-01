@@ -24,7 +24,7 @@ static PATTERNS: LazyLock<RegexSet> = LazyLock::new(|| {
 });
 
 #[derive(Debug, PartialEq)]
-enum ParsedURL {
+pub enum ParsedURL {
     Tiktok {
         url: String,
     },
@@ -61,6 +61,12 @@ impl ParsedURL {
     }
 }
 
+pub fn sanitize_input(user_input: &str) -> Option<ParsedURL> {
+    find_match_index(user_input)
+        .and_then(|matches| matches.first().copied())
+        .and_then(|match_index| get_parsed_url(user_input, match_index))
+}
+
 fn find_match_index(input: &str) -> Option<Vec<u8>> {
     let matches = PATTERNS.matches(input);
     if matches.matched_any() {
@@ -86,12 +92,6 @@ fn get_parsed_url(input: &str, match_index: u8) -> Option<ParsedURL> {
     ParsedURL::from_captures(match_index as usize, captures)
 }
 
-fn get_match(user_input: &str) -> Option<ParsedURL> {
-    find_match_index(user_input)
-        .and_then(|matches| matches.first().copied())
-        .and_then(|match_index| get_parsed_url(user_input, match_index))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,7 +100,7 @@ mod tests {
     // TODO: The / in the end of the input URL mirrors the output URL.
     // 		 Need to standerdize output regardless of input
     fn test_tiktok_url() {
-        let matches = get_match("https://vt.tiktok.com/ZSYXeWygm/");
+        let matches = sanitize_input("https://vt.tiktok.com/ZSYXeWygm/");
         assert_eq!(
             matches,
             Some(ParsedURL::Tiktok {
@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_instagram_post_url() {
-        let matches = get_match("https://instagram.com/p/CMeJMFBs66n/");
+        let matches = sanitize_input("https://instagram.com/p/CMeJMFBs66n/");
         assert_eq!(
             matches,
             Some(ParsedURL::Instagram {
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_instagram_reel_url() {
-        let matches = get_match("https://www.instagram.com/reel/C6lmbgLLflh/");
+        let matches = sanitize_input("https://www.instagram.com/reel/C6lmbgLLflh/");
         assert_eq!(
             matches,
             Some(ParsedURL::Instagram {
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_twitter_url() {
-        let matches = get_match("https://x.com/loltyler1/status/179560257244486sf33");
+        let matches = sanitize_input("https://x.com/loltyler1/status/179560257244486sf33");
         assert_eq!(
             matches,
             Some(ParsedURL::Twitter {
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_twitter_with_www_url() {
-        let matches = get_match("http://www.twitter.com/rit_chill/status/1756388311445221859");
+        let matches = sanitize_input("http://www.twitter.com/rit_chill/status/1756388311445221859");
         assert_eq!(
             matches,
             Some(ParsedURL::Twitter {
