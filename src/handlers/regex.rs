@@ -92,72 +92,72 @@ fn get_match(user_input: &str) -> Option<ParsedURL> {
         .and_then(|match_index| get_parsed_url(user_input, match_index))
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[test]
-//     // TODO: The / in the end of the input URL mirrors the output URL.
-//     // 		 Need to standerdize output regardless of input
-//     fn test_tiktok_url() {
-//         let matches = get_match("https://vt.tiktok.com/ZSYXeWygm/");
-//         assert_eq!(
-//             matches,
-//             Some(ParsedURL::Tiktok {
-//                 url: ("https://vt.tiktok.com/ZSYXeWygm/".to_string())
-//             })
-//         );
-//     }
+    #[test]
+    // TODO: The / in the end of the input URL mirrors the output URL.
+    // 		 Need to standerdize output regardless of input
+    fn test_tiktok_url() {
+        let matches = get_match("https://vt.tiktok.com/ZSYXeWygm/");
+        assert_eq!(
+            matches,
+            Some(ParsedURL::Tiktok {
+                url: ("https://vt.tiktok.com/ZSYXeWygm/".to_string())
+            })
+        );
+    }
 
-//     #[test]
-//     fn test_instagram_post_url() {
-//         let matches = get_match("https://instagram.com/p/CMeJMFBs66n/");
-//         assert_eq!(
-//             matches,
-//             Some(ParsedURL::Instagram {
-//                 url: "https://instagram.com/p/CMeJMFBs66n".to_string(),
-//                 post_type: "p".to_string(),
-//                 data: "/CMeJMFBs66n".to_string(),
-//             }),
-//         );
-//     }
+    #[test]
+    fn test_instagram_post_url() {
+        let matches = get_match("https://instagram.com/p/CMeJMFBs66n/");
+        assert_eq!(
+            matches,
+            Some(ParsedURL::Instagram {
+                url: "https://instagram.com/p/CMeJMFBs66n".to_string(),
+                post_type: "p".to_string(),
+                data: "/CMeJMFBs66n".to_string(),
+            }),
+        );
+    }
 
-//     #[test]
-//     fn test_instagram_reel_url() {
-//         let matches = get_match("https://www.instagram.com/reel/C6lmbgLLflh/");
-//         assert_eq!(
-//             matches,
-//             Some(ParsedURL::Instagram {
-//                 url: "https://www.instagram.com/reel/C6lmbgLLflh".to_string(),
-//                 post_type: "reel".to_string(),
-//                 data: "/C6lmbgLLflh".to_string(),
-//             }),
-//         );
-//     }
+    #[test]
+    fn test_instagram_reel_url() {
+        let matches = get_match("https://www.instagram.com/reel/C6lmbgLLflh/");
+        assert_eq!(
+            matches,
+            Some(ParsedURL::Instagram {
+                url: "https://www.instagram.com/reel/C6lmbgLLflh".to_string(),
+                post_type: "reel".to_string(),
+                data: "/C6lmbgLLflh".to_string(),
+            }),
+        );
+    }
 
-//     #[test]
-//     fn test_twitter_url() {
-//         let matches = get_match("https://x.com/loltyler1/status/179560257244486sf33");
-//         assert_eq!(
-//             matches,
-//             Some(ParsedURL::Twitter {
-//                 url: "https://x.com/loltyler1/status/179560257244486sf33".to_string(),
-//                 username: "loltyler1".to_string(),
-//                 data: "/status/179560257244486sf33".to_string(),
-//             }),
-//         );
-//     }
+    #[test]
+    fn test_twitter_url() {
+        let matches = get_match("https://x.com/loltyler1/status/179560257244486sf33");
+        assert_eq!(
+            matches,
+            Some(ParsedURL::Twitter {
+                url: "https://x.com/loltyler1/status/179560257244486sf33".to_string(),
+                username: "loltyler1".to_string(),
+                data: "/status/179560257244486sf33".to_string(),
+            }),
+        );
+    }
 
-//     #[test]
-//     fn test_twitter_with_www_url() {
-//         let matches = get_match("http://www.twitter.com/rit_chill/status/1756388311445221859");
-//         assert_eq!(
-//             matches,
-//             Some(ParsedURL::Twitter {
-//                 url: "http://www.twitter.com/rit_chill/status/1756388311445221859".to_string(),
-//                 username: "rit_chill".to_string(),
-//                 data: "/status/1756388311445221859".to_string(),
-//             }),
-//         );
-//     }
-// }
+    #[test]
+    fn test_twitter_with_www_url() {
+        let matches = get_match("http://www.twitter.com/rit_chill/status/1756388311445221859");
+        assert_eq!(
+            matches,
+            Some(ParsedURL::Twitter {
+                url: "http://www.twitter.com/rit_chill/status/1756388311445221859".to_string(),
+                username: "rit_chill".to_string(),
+                data: "/status/1756388311445221859".to_string(),
+            }),
+        );
+    }
+}
