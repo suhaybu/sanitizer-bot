@@ -50,10 +50,18 @@ pub enum ParsedURL {
 }
 
 impl ParsedURL {
-    fn from_captures(variant_index: usize, captures: regex::Captures) -> Option<Self> {
+    // Creates a new ParsedURL (enum) if there is a match, else returns None
+    fn new(user_input: String) -> Option<Self> {
+        let matches = PATTERNS.matches(&user_input);
+        let match_index = matches.matched_any().then(|| matches.iter().next())??;
+
+        let pattern = URL_PATTERNS.get(match_index)?;
+        let re = Regex::new(pattern).ok()?;
+        let captures = re.captures(&user_input)?;
+
         let url = captures.get(0).unwrap().as_str().to_string(); // Stores base of url => url
 
-        match variant_index {
+        match match_index {
             0 => Some(ParsedURL::Tiktok { url }),
             1 => Some(ParsedURL::Instagram {
                 url,
@@ -70,42 +78,20 @@ impl ParsedURL {
     }
 }
 
-// This function takes the user input, if there is a match, it returns a ParsedURL enum
-pub fn parse_url(user_input: &str) -> Option<ParsedURL> {
-    find_match(user_input)
-        .and_then(|matches| matches.first().copied())
-        .and_then(|match_index| get_parsed_url(user_input, match_index))
-}
-
-// This function returns the match index
-fn find_match(input: &str) -> Option<Vec<u8>> {
-    let matches = PATTERNS.matches(input);
-    matches
-        .matched_any()
-        .then(|| matches.iter().map(|idx| idx as u8).collect())
-}
-
-// Gets the ParsedURL enum
-fn get_parsed_url(input: &str, match_index: u8) -> Option<ParsedURL> {
-    let pattern = URL_PATTERNS.get(match_index as usize)?;
-
-    let re = Regex::new(pattern).ok()?;
-
-    re.captures(input)
-        .and_then(|captures| ParsedURL::from_captures(match_index as usize, captures))
-}
-
-// fn get_string_response(variant_index: u8, )
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // This function takes the user input, if there is a match, it returns a ParsedURL enum
+    fn parse_url(user_input: String) -> Option<ParsedURL> {
+        ParsedURL::new(user_input)
+    }
 
     #[test]
     // TODO: The / in the end of the input URL mirrors the output URL.
     // 		 Need to standerdize output regardless of input
     fn test_tiktok_url() {
-        let matches = parse_url("https://vt.tiktok.com/ZSYXeWygm/");
+        let matches = parse_url("https://vt.tiktok.com/ZSYXeWygm/".to_string());
         assert_eq!(
             matches,
             Some(ParsedURL::Tiktok {
@@ -116,7 +102,7 @@ mod tests {
 
     #[test]
     fn test_instagram_post_url() {
-        let matches = parse_url("https://instagram.com/p/CMeJMFBs66n/");
+        let matches = parse_url("https://instagram.com/p/CMeJMFBs66n/".to_string());
         assert_eq!(
             matches,
             Some(ParsedURL::Instagram {
@@ -129,7 +115,7 @@ mod tests {
 
     #[test]
     fn test_instagram_reel_url() {
-        let matches = parse_url("https://www.instagram.com/reel/C6lmbgLLflh/");
+        let matches = parse_url("https://www.instagram.com/reel/C6lmbgLLflh/".to_string());
         assert_eq!(
             matches,
             Some(ParsedURL::Instagram {
@@ -142,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_twitter_url() {
-        let matches = parse_url("https://x.com/loltyler1/status/179560257244486sf33");
+        let matches = parse_url("https://x.com/loltyler1/status/179560257244486sf33".to_string());
         assert_eq!(
             matches,
             Some(ParsedURL::Twitter {
@@ -155,7 +141,8 @@ mod tests {
 
     #[test]
     fn test_twitter_with_www_url() {
-        let matches = parse_url("http://www.twitter.com/rit_chill/status/1756388311445221859");
+        let matches =
+            parse_url("http://www.twitter.com/rit_chill/status/1756388311445221859".to_string());
         assert_eq!(
             matches,
             Some(ParsedURL::Twitter {
