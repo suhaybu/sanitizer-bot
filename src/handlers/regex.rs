@@ -3,25 +3,34 @@ use regex::{Regex, RegexSet, RegexSetBuilder};
 use std::sync::LazyLock;
 use tracing;
 
-const TIKTOK_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com/[^/]+/?\S*";
-const INSTAGRAM_PATTERN: &str =
+const TIKTOK_URL_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com/[^/]+/?\S*";
+const INSTAGRAM_URL_PATTERN: &str =
     r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reel|p)(?P<data>/[^/\s?]+)";
-const TWITTER_PATTERN: &str =
+const TWITTER_URL_PATTERN: &str =
     r"(?i)https?://(www\.)?(twitter|x)\.com/(?P<username>\w+)(?P<data>/status/[^?\s]*)";
 
-const URL_PATTERNS: &[&str] = &[TIKTOK_PATTERN, INSTAGRAM_PATTERN, TWITTER_PATTERN];
+const URL_PATTERNS: &[&str] = &[
+    TIKTOK_URL_PATTERN,
+    INSTAGRAM_URL_PATTERN,
+    TWITTER_URL_PATTERN,
+];
+
+type RegexResult<T> = Result<T, regex::Error>;
 
 static PATTERNS: LazyLock<RegexSet> = LazyLock::new(|| {
     // Take note of the order the Patterns are loaded, that will be essenstial for the get_match fn
+    build_regex_set().unwrap_or_else(|err| {
+        tracing::error!("Failed to build RegexSet: {}", err);
+        panic!("RegexSet initialization failed")
+    })
+});
+
+fn build_regex_set() -> RegexResult<RegexSet> {
     RegexSetBuilder::new(URL_PATTERNS)
         .case_insensitive(true)
         .multi_line(true)
         .build()
-        .unwrap_or_else(|err| {
-            tracing::error!("Failed to build RegexSet: {}", err);
-            panic!("RegexSet initialization failed")
-        })
-});
+}
 
 #[derive(Debug, PartialEq)]
 pub enum ParsedURL {
@@ -42,17 +51,17 @@ pub enum ParsedURL {
 
 impl ParsedURL {
     fn from_captures(variant_index: usize, captures: regex::Captures) -> Option<Self> {
+        let url = captures.get(0).unwrap().as_str().to_string(); // Stores base of url => url
+
         match variant_index {
-            0 => Some(ParsedURL::Tiktok {
-                url: captures.get(0).unwrap().as_str().to_string(),
-            }),
+            0 => Some(ParsedURL::Tiktok { url }),
             1 => Some(ParsedURL::Instagram {
-                url: captures.get(0).unwrap().as_str().to_string(),
+                url,
                 post_type: captures.name("type").unwrap().as_str().to_string(),
                 data: captures.name("data").unwrap().as_str().to_string(),
             }),
             2 => Some(ParsedURL::Twitter {
-                url: captures.get(0).unwrap().as_str().to_string(),
+                url,
                 username: captures.name("username").unwrap().as_str().to_string(),
                 data: captures.name("data").unwrap().as_str().to_string(),
             }),
@@ -61,36 +70,32 @@ impl ParsedURL {
     }
 }
 
-pub fn sanitize_input(user_input: &str) -> Option<ParsedURL> {
-    find_match_index(user_input)
+// This function takes the user input, if there is a match, it returns a ParsedURL enum
+pub fn parse_url(user_input: &str) -> Option<ParsedURL> {
+    find_match(user_input)
         .and_then(|matches| matches.first().copied())
         .and_then(|match_index| get_parsed_url(user_input, match_index))
 }
 
-fn find_match_index(input: &str) -> Option<Vec<u8>> {
+// This function returns the match index
+fn find_match(input: &str) -> Option<Vec<u8>> {
     let matches = PATTERNS.matches(input);
-    if matches.matched_any() {
-        let response: Vec<u8> = matches.iter().map(|idx| idx as u8).collect();
-        Some(response)
-    } else {
-        None
-    }
+    matches
+        .matched_any()
+        .then(|| matches.iter().map(|idx| idx as u8).collect())
 }
 
+// Gets the ParsedURL enum
 fn get_parsed_url(input: &str, match_index: u8) -> Option<ParsedURL> {
     let pattern = URL_PATTERNS.get(match_index as usize)?;
 
-    let re = match Regex::new(pattern) {
-        Ok(re) => re,
-        Err(err) => {
-            tracing::error!("Failed to compile regex: {}", err);
-            return None;
-        }
-    };
+    let re = Regex::new(pattern).ok()?;
 
-    let captures = re.captures(input)?;
-    ParsedURL::from_captures(match_index as usize, captures)
+    re.captures(input)
+        .and_then(|captures| ParsedURL::from_captures(match_index as usize, captures))
 }
+
+// fn get_string_response(variant_index: u8, )
 
 #[cfg(test)]
 mod tests {
@@ -100,7 +105,7 @@ mod tests {
     // TODO: The / in the end of the input URL mirrors the output URL.
     // 		 Need to standerdize output regardless of input
     fn test_tiktok_url() {
-        let matches = sanitize_input("https://vt.tiktok.com/ZSYXeWygm/");
+        let matches = parse_url("https://vt.tiktok.com/ZSYXeWygm/");
         assert_eq!(
             matches,
             Some(ParsedURL::Tiktok {
@@ -111,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_instagram_post_url() {
-        let matches = sanitize_input("https://instagram.com/p/CMeJMFBs66n/");
+        let matches = parse_url("https://instagram.com/p/CMeJMFBs66n/");
         assert_eq!(
             matches,
             Some(ParsedURL::Instagram {
@@ -124,7 +129,7 @@ mod tests {
 
     #[test]
     fn test_instagram_reel_url() {
-        let matches = sanitize_input("https://www.instagram.com/reel/C6lmbgLLflh/");
+        let matches = parse_url("https://www.instagram.com/reel/C6lmbgLLflh/");
         assert_eq!(
             matches,
             Some(ParsedURL::Instagram {
@@ -137,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_twitter_url() {
-        let matches = sanitize_input("https://x.com/loltyler1/status/179560257244486sf33");
+        let matches = parse_url("https://x.com/loltyler1/status/179560257244486sf33");
         assert_eq!(
             matches,
             Some(ParsedURL::Twitter {
@@ -150,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_twitter_with_www_url() {
-        let matches = sanitize_input("http://www.twitter.com/rit_chill/status/1756388311445221859");
+        let matches = parse_url("http://www.twitter.com/rit_chill/status/1756388311445221859");
         assert_eq!(
             matches,
             Some(ParsedURL::Twitter {
