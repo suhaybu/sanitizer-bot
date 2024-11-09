@@ -1,2 +1,2 @@
 pub mod discord;
-pub mod regex;
+pub mod parse_url;
