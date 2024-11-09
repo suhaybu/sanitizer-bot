@@ -9,7 +9,7 @@ pub async fn sanitize(
     ctx: Context<'_>,
     #[description = "Your link goes here"] link: String,
 ) -> Result<(), Error> {
-    let response = match ParsedURL::new(link) {
+    let response = match ParsedURL::new(&link) {
         Some(parsed_url) => match parsed_url {
             ParsedURL::Tiktok { url } => {
                 format!("TikTok link detected (TEST): {url}")
