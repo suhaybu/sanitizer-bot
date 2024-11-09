@@ -32,7 +32,7 @@ async fn run() -> Result<()> {
             event_handler: |ctx, event, framework, data| {
                 Box::pin(handlers::discord::events(ctx, event, framework, data))
             },
-            commands: commands::get_all(),
+            commands: commands::get_all(), // Loads all commands from commands/mod.rs -> fn get_all
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
