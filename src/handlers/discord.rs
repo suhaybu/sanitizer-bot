@@ -2,7 +2,7 @@ use anyhow::Error;
 use poise::serenity_prelude as serenity;
 use tracing::{debug, info};
 
-use crate::handlers::ParsedURL;
+use crate::handlers::sanitize_input;
 use crate::Data;
 
 pub async fn get_event_handler(
@@ -16,51 +16,26 @@ pub async fn get_event_handler(
             info!("🤖 {} is Online", data_about_bot.user.name.to_string())
         }
         serenity::FullEvent::Message { new_message } => {
-            handle_messages(ctx, new_message).await?;
+            on_message(ctx, new_message).await?;
         }
         _ => {}
     }
     Ok(())
 }
 
-async fn handle_messages(
-    ctx: &serenity::Context,
-    message: &serenity::Message,
-) -> Result<(), Error> {
+async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Result<(), Error> {
     debug!("Message detected");
-    let input = message.content.trim();
 
     // Exits if message author is from bot itself
     if message.author.id == ctx.cache.current_user().id {
         return Ok(());
     }
 
+    let input = message.content.trim();
     debug!("input = {input}");
 
-    // Check for any supported URLs in the message
-    if let Some(parsed_url) = ParsedURL::new(input) {
-        let response = match parsed_url {
-            ParsedURL::Tiktok { url } => {
-                format!("TikTok link detected (TEST): {url}")
-            }
-            ParsedURL::Instagram {
-                url: _,
-                post_type,
-                data,
-            } => {
-                format!("[{post_type} via Instagram](https://g.ddinstagram.com/{post_type}{data})")
-            }
-            ParsedURL::Twitter {
-                url: _,
-                username,
-                data,
-            } => {
-                format!("[@{username} via X (Twitter)](https://fxtwitter.com/{username}{data})")
-            }
-        };
-
-        debug!("response = {input}");
-        // Reply to the message with the sanitized URL
+    if let Some(response) = sanitize_input(input).await {
+        debug!("response = {response}");
         message.reply(ctx, response).await?;
     }
 
