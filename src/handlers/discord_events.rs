@@ -1,5 +1,5 @@
 use anyhow::Error;
-use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::{self as serenity, EmojiId};
 use tracing::{debug, info};
 
 use crate::handlers::sanitize_input;
@@ -34,10 +34,22 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
     let input = message.content.trim();
     debug!("input = {input}");
 
-    if let Some(response) = sanitize_input(input).await {
-        debug!("response = {response}");
-        message.reply(ctx, response).await?;
-    }
+    let response = match sanitize_input(input).await {
+        None => return Ok(()), // Exit early if no match
+        Some(response) => response,
+    };
+
+    message.reply(ctx, response).await?;
+    message
+        .react(
+            ctx,
+            serenity::ReactionType::Custom {
+                animated: false,
+                id: EmojiId::new(1206376642042138724),
+                name: Some("Sanitized".to_string()),
+            },
+        )
+        .await?;
 
     Ok(())
 }
