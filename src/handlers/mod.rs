@@ -1,5 +1,5 @@
 pub mod discord;
 mod parse_url;
-mod url_type;
+mod response;
 
 pub use parse_url::ParsedURL;
