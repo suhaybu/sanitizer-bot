@@ -1,7 +1,11 @@
 use crate::{Data, Error};
 
-pub mod age;
+mod age;
+mod sanitize;
+
+use age::age;
+use sanitize::sanitize;
 
 pub fn get_all() -> Vec<poise::Command<Data, Error>> {
-    vec![age::age()]
+    vec![age(), sanitize()]
 }
