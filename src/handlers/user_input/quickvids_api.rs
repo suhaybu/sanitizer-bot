@@ -9,8 +9,8 @@ static API_TOKEN: LazyLock<String> =
 
 static CLIENT: LazyLock<Client> = LazyLock::new(|| {
     ClientBuilder::new()
-        .timeout(Duration::from_secs(2)) // 2 second total timeout
-        .connect_timeout(Duration::from_secs(1)) // 1 second connect timeout
+        .timeout(Duration::from_secs(3)) // 2 second total timeout
+        .connect_timeout(Duration::from_secs(2)) // 1 second connect timeout
         .pool_max_idle_per_host(1) // Single connection for infrequent use
         .use_rustls_tls()
         .build()
