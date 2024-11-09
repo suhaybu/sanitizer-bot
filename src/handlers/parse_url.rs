@@ -51,7 +51,7 @@ pub enum ParsedURL {
 
 impl ParsedURL {
     // Creates a new ParsedURL (enum) if there is a match, else returns None
-    pub fn new(user_input: String) -> Option<Self> {
+    pub fn new(user_input: &str) -> Option<Self> {
         let matches = PATTERNS.matches(&user_input);
         let match_index = matches.matched_any().then(|| matches.iter().next())??;
 
@@ -83,15 +83,15 @@ mod tests {
     use super::*;
 
     // This function takes the user input, if there is a match, it returns a ParsedURL enum
-    fn parse_url(user_input: String) -> Option<ParsedURL> {
-        ParsedURL::new(user_input)
+    fn parse_url(user_input: &str) -> Option<ParsedURL> {
+        ParsedURL::new(&user_input)
     }
 
     #[test]
     // TODO: The / in the end of the input URL mirrors the output URL.
     // 		 Need to standerdize output regardless of input
     fn test_tiktok_url() {
-        let matches = parse_url("https://vt.tiktok.com/ZSYXeWygm/".to_string());
+        let matches = parse_url("https://vt.tiktok.com/ZSYXeWygm/");
         assert_eq!(
             matches,
             Some(ParsedURL::Tiktok {
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn test_instagram_post_url() {
-        let matches = parse_url("https://instagram.com/p/CMeJMFBs66n/".to_string());
+        let matches = parse_url("https://instagram.com/p/CMeJMFBs66n/");
         assert_eq!(
             matches,
             Some(ParsedURL::Instagram {
@@ -115,7 +115,7 @@ mod tests {
 
     #[test]
     fn test_instagram_reel_url() {
-        let matches = parse_url("https://www.instagram.com/reel/C6lmbgLLflh/".to_string());
+        let matches = parse_url("https://www.instagram.com/reel/C6lmbgLLflh/");
         assert_eq!(
             matches,
             Some(ParsedURL::Instagram {
@@ -128,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_twitter_url() {
-        let matches = parse_url("https://x.com/loltyler1/status/179560257244486sf33".to_string());
+        let matches = parse_url("https://x.com/loltyler1/status/179560257244486sf33");
         assert_eq!(
             matches,
             Some(ParsedURL::Twitter {
@@ -141,8 +141,7 @@ mod tests {
 
     #[test]
     fn test_twitter_with_www_url() {
-        let matches =
-            parse_url("http://www.twitter.com/rit_chill/status/1756388311445221859".to_string());
+        let matches = parse_url("http://www.twitter.com/rit_chill/status/1756388311445221859");
         assert_eq!(
             matches,
             Some(ParsedURL::Twitter {
