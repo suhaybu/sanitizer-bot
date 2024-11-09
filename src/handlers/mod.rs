@@ -1,2 +1,4 @@
 pub mod discord;
-pub mod parse_url;
+mod parse_url;
+
+pub use parse_url::ParsedURL;

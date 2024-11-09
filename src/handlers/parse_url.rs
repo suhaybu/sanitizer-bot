@@ -51,7 +51,7 @@ pub enum ParsedURL {
 
 impl ParsedURL {
     // Creates a new ParsedURL (enum) if there is a match, else returns None
-    fn new(user_input: String) -> Option<Self> {
+    pub fn new(user_input: String) -> Option<Self> {
         let matches = PATTERNS.matches(&user_input);
         let match_index = matches.matched_any().then(|| matches.iter().next())??;
 
