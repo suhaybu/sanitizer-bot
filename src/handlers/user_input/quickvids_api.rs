@@ -1,10 +1,21 @@
-use reqwest::Client;
+use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
+use std::time::Duration;
 
 const API_URL: &str = "https://api.quickvids.app/v2/quickvids/shorturl";
 static API_TOKEN: LazyLock<String> =
     LazyLock::new(|| std::env::var("QUICKVIDS_TOKEN").expect("QUICKVIDS_TOKEN is not set"));
+
+static CLIENT: LazyLock<Client> = LazyLock::new(|| {
+    ClientBuilder::new()
+        .timeout(Duration::from_secs(2)) // 2 second total timeout
+        .connect_timeout(Duration::from_secs(1)) // 1 second connect timeout
+        .pool_max_idle_per_host(1) // Single connection for infrequent use
+        .use_rustls_tls()
+        .build()
+        .expect("Failed to create HTTP client")
+});
 
 #[derive(Serialize)]
 struct APIRequest<'a> {
@@ -34,36 +45,29 @@ pub struct FormattedResponse {
     pub url: String,
 }
 
-pub struct QuickVidsAPI {
-    client: Client,
-}
+pub struct QuickVidsAPI {}
 
 impl QuickVidsAPI {
     pub fn new() -> Self {
-        Self {
-            client: Client::new(),
-        }
+        Self {}
     }
 
     async fn make_request(&self, url: &str, detailed: bool) -> Option<APIResponse> {
-        let request = APIRequest {
+        let request_body = APIRequest {
             input_text: url,
             detailed,
         };
 
-        let response = self
-            .client
+        // Makes the API call
+        match CLIENT
             .post(API_URL)
             .bearer_auth(&*API_TOKEN)
-            .json(&request)
+            .json(&request_body)
             .send()
             .await
-            .ok()?;
-
-        if response.status().is_success() {
-            response.json().await.ok()
-        } else {
-            None
+        {
+            Ok(response) if response.status().is_success() => response.json().await.ok(),
+            _ => None,
         }
     }
 
