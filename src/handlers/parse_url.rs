@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use regex::{Regex, RegexSet, RegexSetBuilder};
+use std::borrow::Cow;
 use std::sync::LazyLock;
 use tracing;
 
@@ -33,25 +34,25 @@ fn build_regex_set() -> RegexResult<RegexSet> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ParsedURL {
+pub enum ParsedURL<'a> {
     Tiktok {
-        url: String,
+        url: Cow<'a, str>,
     },
     Instagram {
-        url: String,
-        post_type: String,
-        data: String,
+        url: Cow<'a, str>,
+        post_type: Cow<'a, str>,
+        data: Cow<'a, str>,
     },
     Twitter {
-        url: String,
-        username: String,
-        data: String,
+        url: Cow<'a, str>,
+        username: Cow<'a, str>,
+        data: Cow<'a, str>,
     },
 }
 
-impl ParsedURL {
+impl<'a> ParsedURL<'a> {
     // Creates a new ParsedURL (enum) if there is a match, else returns None
-    pub fn new(user_input: &str) -> Option<Self> {
+    pub fn new(user_input: &'a str) -> Option<Self> {
         let matches = PATTERNS.matches(&user_input);
         let match_index = matches.matched_any().then(|| matches.iter().next())??;
 
@@ -59,19 +60,19 @@ impl ParsedURL {
         let re = Regex::new(pattern).ok()?;
         let captures = re.captures(&user_input)?;
 
-        let url = captures.get(0).unwrap().as_str().to_string(); // Stores base of url => url
-
         match match_index {
-            0 => Some(ParsedURL::Tiktok { url }),
+            0 => Some(ParsedURL::Tiktok {
+                url: Cow::Borrowed(captures.get(0).unwrap().as_str()),
+            }),
             1 => Some(ParsedURL::Instagram {
-                url,
-                post_type: captures.name("type").unwrap().as_str().to_string(),
-                data: captures.name("data").unwrap().as_str().to_string(),
+                url: Cow::Borrowed(captures.get(0).unwrap().as_str()),
+                post_type: Cow::Borrowed(captures.name("type").unwrap().as_str()),
+                data: Cow::Borrowed(captures.name("data").unwrap().as_str()),
             }),
             2 => Some(ParsedURL::Twitter {
-                url,
-                username: captures.name("username").unwrap().as_str().to_string(),
-                data: captures.name("data").unwrap().as_str().to_string(),
+                url: Cow::Borrowed(captures.get(0).unwrap().as_str()),
+                username: Cow::Borrowed(captures.name("username").unwrap().as_str()),
+                data: Cow::Borrowed(captures.name("data").unwrap().as_str()),
             }),
             _ => None,
         }
@@ -91,11 +92,11 @@ mod tests {
     // TODO: The / in the end of the input URL mirrors the output URL.
     // 		 Need to standerdize output regardless of input
     fn test_tiktok_url() {
-        let matches = parse_url("https://vt.tiktok.com/ZSYXeWygm/");
+        let matches = parse_url("https://vt.tiktok.com/ZSYXeWygm");
         assert_eq!(
             matches,
             Some(ParsedURL::Tiktok {
-                url: ("https://vt.tiktok.com/ZSYXeWygm/".to_string())
+                url: Cow::Borrowed("https://vt.tiktok.com/ZSYXeWygm"),
             })
         );
     }
@@ -106,10 +107,10 @@ mod tests {
         assert_eq!(
             matches,
             Some(ParsedURL::Instagram {
-                url: "https://instagram.com/p/CMeJMFBs66n".to_string(),
-                post_type: "p".to_string(),
-                data: "/CMeJMFBs66n".to_string(),
-            }),
+                url: Cow::Borrowed("https://instagram.com/p/CMeJMFBs66n"),
+                post_type: Cow::Borrowed("p"),
+                data: Cow::Borrowed("/CMeJMFBs66n"),
+            })
         );
     }
 
@@ -119,10 +120,10 @@ mod tests {
         assert_eq!(
             matches,
             Some(ParsedURL::Instagram {
-                url: "https://www.instagram.com/reel/C6lmbgLLflh".to_string(),
-                post_type: "reel".to_string(),
-                data: "/C6lmbgLLflh".to_string(),
-            }),
+                url: Cow::Borrowed("https://www.instagram.com/reel/C6lmbgLLflh"),
+                post_type: Cow::Borrowed("reel"),
+                data: Cow::Borrowed("/C6lmbgLLflh"),
+            })
         );
     }
 
@@ -132,10 +133,10 @@ mod tests {
         assert_eq!(
             matches,
             Some(ParsedURL::Twitter {
-                url: "https://x.com/loltyler1/status/179560257244486sf33".to_string(),
-                username: "loltyler1".to_string(),
-                data: "/status/179560257244486sf33".to_string(),
-            }),
+                url: Cow::Borrowed("https://x.com/loltyler1/status/179560257244486sf33"),
+                username: Cow::Borrowed("loltyler1"),
+                data: Cow::Borrowed("/status/179560257244486sf33"),
+            })
         );
     }
 
@@ -145,10 +146,10 @@ mod tests {
         assert_eq!(
             matches,
             Some(ParsedURL::Twitter {
-                url: "http://www.twitter.com/rit_chill/status/1756388311445221859".to_string(),
-                username: "rit_chill".to_string(),
-                data: "/status/1756388311445221859".to_string(),
-            }),
+                url: Cow::Borrowed("http://www.twitter.com/rit_chill/status/1756388311445221859"),
+                username: Cow::Borrowed("rit_chill"),
+                data: Cow::Borrowed("/status/1756388311445221859"),
+            })
         );
     }
 }
