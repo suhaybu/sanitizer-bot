@@ -1,7 +1,10 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 
 const API_URL: &str = "https://api.quickvids.app/v2/quickvids/shorturl";
+static API_TOKEN: LazyLock<String> =
+    LazyLock::new(|| std::env::var("QUICKVIDS_TOKEN").expect("QUICKVIDS_TOKEN is not set"));
 
 #[derive(Serialize)]
 struct APIRequest<'a> {
@@ -27,7 +30,6 @@ struct APIResponse {
 
 pub struct QuickVidsAPI {
     client: Client,
-    token: String,
 }
 
 #[derive(Debug)]
@@ -40,7 +42,6 @@ impl QuickVidsAPI {
     pub fn new() -> Self {
         Self {
             client: Client::new(),
-            token: std::env::var("QUICKVIDS_TOKEN").expect("QUICKVIDS_TOKEN is not set"),
         }
     }
 
@@ -53,8 +54,7 @@ impl QuickVidsAPI {
         let response = self
             .client
             .post(API_URL)
-            .header("Content-Type", "application/json")
-            .header("Authorization", format!("Bearer {}", self.token))
+            .bearer_auth(&*API_TOKEN)
             .json(&request)
             .send()
             .await
