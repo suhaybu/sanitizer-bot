@@ -30,7 +30,9 @@ async fn run() -> Result<()> {
     let framework = Framework::builder()
         .options(FrameworkOptions {
             event_handler: |ctx, event, framework, data| {
-                Box::pin(handlers::discord::events(ctx, event, framework, data))
+                Box::pin(handlers::discord::get_event_handler(
+                    ctx, event, framework, data,
+                ))
             },
             commands: commands::get_all(), // Loads all commands from commands/mod.rs -> fn get_all
             ..Default::default()

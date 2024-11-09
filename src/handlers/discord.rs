@@ -3,7 +3,7 @@ use anyhow::Error;
 use poise::serenity_prelude as serenity;
 use tracing::info;
 
-pub async fn events(
+pub async fn get_event_handler(
     ctx: &serenity::Context,
     event: &serenity::FullEvent,
     _framework: poise::FrameworkContext<'_, Data, Error>,
