@@ -35,14 +35,30 @@ fn build_regex_set() -> RegexResult<RegexSet> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParsedURL<'a> {
-    Tiktok {
-        url: Cow<'a, str>,
-    },
+    /// Captures for TikTok URLs
+    /// Example URL: "https://vt.tiktok.com/ZSYXeWygm/"
+    /// Captures:
+    ///   - url: "https://vt.tiktok.com/ZSYXeWygm/"
+    Tiktok { url: Cow<'a, str> },
+
+    /// Captures for Instagram URLs
+    /// Example URL: "https://www.instagram.com/p/C9uiuh4KTlR/"
+    /// Captures:
+    ///   - url: "https://www.instagram.com/p/C9uiuh4KTlR"
+    ///   - post_type: "p"      (can be "p"|"reel")
+    ///   - data: "/C9uiuh4KTlR"
     Instagram {
         url: Cow<'a, str>,
         post_type: Cow<'a, str>,
         data: Cow<'a, str>,
     },
+
+    /// Captures for Twitter/X URLs
+    /// Example URL: "https://www.twitter.com/rit_chill/status/1756388311445221859"
+    /// Captures:
+    ///   - url: "https://www.twitter.com/rit_chill/status/1756388311445221859"
+    ///   - username: "rit_chill"
+    ///   - data: "/status/1756388311445221859"
     Twitter {
         url: Cow<'a, str>,
         username: Cow<'a, str>,
