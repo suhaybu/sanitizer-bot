@@ -28,14 +28,14 @@ struct APIResponse {
     details: Option<VideoDetails>,
 }
 
-pub struct QuickVidsAPI {
-    client: Client,
-}
-
 #[derive(Debug)]
 pub struct FormattedResponse {
     pub username: Option<String>,
     pub url: String,
+}
+
+pub struct QuickVidsAPI {
+    client: Client,
 }
 
 impl QuickVidsAPI {
