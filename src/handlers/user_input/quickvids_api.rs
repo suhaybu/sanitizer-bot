@@ -53,22 +53,22 @@ impl QuickVidsAPI {
     }
 
     async fn make_request(&self, url: &str, detailed: bool) -> Option<APIResponse> {
-        let request_body = APIRequest {
-            input_text: url,
-            detailed,
-        };
-
-        // Makes the API call
-        match CLIENT
+        // This function makes the API request with crazy 0 variables
+        CLIENT
             .post(API_URL)
             .bearer_auth(&*API_TOKEN)
-            .json(&request_body)
-            .send()
+            .json(&APIRequest {
+                input_text: url,
+                detailed,
+            })
+            .send() // Sends the HTTP request, gets a Result<Response, Error>
             .await
-        {
-            Ok(response) if response.status().is_success() => response.json().await.ok(),
-            _ => None,
-        }
+            .ok()? // Unwraps Result -> Option
+            .error_for_status() // Checks if there is an error, gets a Result
+            .ok()? // Unwraps Result -> Option
+            .json() // Deserializes the JSON response from API
+            .await
+            .ok() // Converts the Result into Option
     }
 
     pub async fn get_response(&self, url: &str) -> Option<FormattedResponse> {
