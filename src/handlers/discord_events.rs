@@ -1,9 +1,8 @@
-use ::serenity::all::EditMessage;
 use anyhow::Error;
 use poise::serenity_prelude::{self as serenity, EmojiId};
 use tracing::{debug, info};
 
-use crate::handlers::sanitize_input;
+use crate::handlers::{handle_response, sanitize_input};
 use crate::Data;
 
 pub async fn get_event_handler(
@@ -40,12 +39,7 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
         Some(response) => response,
     };
 
-    let bot_response = message.reply(ctx, response).await?;
-
-    message
-        .channel_id
-        .edit_message(ctx, message.id, EditMessage::new().suppress_embeds(true))
-        .await?;
+    let bot_message = message.reply(ctx, response).await?;
 
     message
         .react(
@@ -57,6 +51,8 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
             },
         )
         .await?;
+
+    handle_response(ctx, message, &bot_message).await?;
 
     Ok(())
 }
