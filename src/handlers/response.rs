@@ -1,8 +1,8 @@
+use ::serenity::all::CreateInteractionResponseFollowup;
 use anyhow::Error;
 use poise::serenity_prelude::{
-    self as serenity, CommandInteraction, CreateAllowedMentions, CreateEmbed,
-    CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, EditMessage,
-    EmojiId,
+    self as serenity, CommandInteraction, CreateEmbed, CreateInteractionResponse,
+    CreateInteractionResponseMessage, CreateMessage, EditMessage, EmojiId,
 };
 use std::time::Duration;
 use tokio::time::sleep;
@@ -83,7 +83,6 @@ pub async fn handle_interaction_response(
     }
 
     let is_valid_response = check_bot_response(&bot_message);
-
     if !is_valid_response {
         // Delete the invalid bot message
         bot_message.delete(ctx).await?;
@@ -95,13 +94,11 @@ pub async fn handle_interaction_response(
             .color(0xd1001f);
 
         interaction
-            .create_response(
+            .create_followup(
                 ctx,
-                CreateInteractionResponse::Message(
-                    CreateInteractionResponseMessage::new()
-                        .add_embed(error_embed)
-                        .ephemeral(true),
-                ),
+                CreateInteractionResponseFollowup::new()
+                    .add_embed(error_embed)
+                    .ephemeral(true),
             )
             .await?;
     }
