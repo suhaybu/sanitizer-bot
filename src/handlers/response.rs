@@ -116,7 +116,9 @@ fn check_bot_response(bot_message: &serenity::Message) -> bool {
             .embeds
             .first()
             .and_then(|embed| embed.title.as_ref())
-            .map_or(false, |title| title != "InstaFix"),
+            .map_or(false, |title| {
+                title != "InstaFix" && title != "Login • Instagram"
+            }),
         _ => true,
     }
 }
