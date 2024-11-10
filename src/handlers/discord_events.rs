@@ -1,3 +1,4 @@
+use ::serenity::all::EditMessage;
 use anyhow::Error;
 use poise::serenity_prelude::{self as serenity, EmojiId};
 use tracing::{debug, info};
@@ -39,7 +40,13 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
         Some(response) => response,
     };
 
-    message.reply(ctx, response).await?;
+    let bot_response = message.reply(ctx, response).await?;
+
+    message
+        .channel_id
+        .edit_message(ctx, message.id, EditMessage::new().suppress_embeds(true))
+        .await?;
+
     message
         .react(
             ctx,
