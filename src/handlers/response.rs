@@ -1,8 +1,7 @@
 use ::serenity::all::CreateInteractionResponseFollowup;
 use anyhow::Error;
 use poise::serenity_prelude::{
-    self as serenity, CommandInteraction, CreateEmbed, CreateInteractionResponse,
-    CreateInteractionResponseMessage, CreateMessage, EditMessage, EmojiId,
+    self as serenity, CommandInteraction, CreateEmbed, CreateMessage, EditMessage, EmojiId,
 };
 use std::time::Duration;
 use tokio::time::sleep;
