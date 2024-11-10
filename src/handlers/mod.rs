@@ -1,4 +1,6 @@
+mod cld;
 mod discord_events;
+mod response;
 mod sanitize_input;
 mod user_input;
 
