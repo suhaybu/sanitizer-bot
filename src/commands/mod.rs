@@ -2,6 +2,7 @@ use crate::{Data, Error};
 
 mod age;
 mod config;
+mod credits;
 mod sanitize;
 
 use age::age;
