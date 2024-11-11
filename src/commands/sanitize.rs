@@ -13,6 +13,8 @@ pub async fn sanitize(
     ctx: Context<'_>,
     #[description = "Your link goes here"] link: String,
 ) -> Result<(), Error> {
+    let _ = ctx.defer().await; // sends "Is thinking..." before response
+
     // Get initial response ready
     let response = match sanitize_input(&link).await {
         Some(sanitized_url) => sanitized_url,
