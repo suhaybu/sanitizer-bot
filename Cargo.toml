@@ -27,3 +27,7 @@ opt-level = 3     # Maximum optimization
 
 [build]
 rustflags = ["--cfg", "tokio_unstable"]
+
+[patch.crates-io.serenity]
+git = "https://github.com/serenity-rs/serenity"
+branch = "current"
