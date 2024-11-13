@@ -15,33 +15,19 @@ pub async fn sanitize(
     ctx: Context<'_>,
     #[description = "Your link goes here"] link: String,
 ) -> Result<(), Error> {
-    let _ = ctx.defer().await; // sends "Is thinking..." before response
-
-    // Get initial response ready
-    let response = match sanitize_input(&link).await {
-        Some(sanitized_url) => sanitized_url,
-        None => INVALID_URL_MESSAGE.to_string(),
-    };
-
-    if let Context::Application(application_ctx) = ctx {
-        // Defer first to get more time
-        application_ctx.defer_response(false).await?;
-
-        let bot_message = ctx.say(response).await?;
-        let bot_message = bot_message.message().await?;
-
-        handle_interaction_response(&ctx, &bot_message).await?;
-    }
-
-    Ok(())
+    sanitize_handler(ctx, link).await
 }
 
 #[poise::command(context_menu_command = "Sanitize")]
 pub async fn sanitize_menu(ctx: Context<'_>, link: serenity::Message) -> Result<(), Error> {
+    sanitize_handler(ctx, link.content).await
+}
+
+async fn sanitize_handler(ctx: Context<'_>, link: String) -> Result<(), Error> {
     let _ = ctx.defer().await; // sends "Is thinking..." before response
 
     // Get initial response ready
-    let response = match sanitize_input(&link.content).await {
+    let response = match sanitize_input(&link).await {
         Some(sanitized_url) => sanitized_url,
         None => INVALID_URL_MESSAGE.to_string(),
     };
