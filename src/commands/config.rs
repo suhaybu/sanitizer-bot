@@ -88,19 +88,12 @@ pub async fn config(ctx: Context<'_>) -> Result<(), Error> {
         CreateActionRow::SelectMenu(embed_visibility_menu),
     ];
 
-    if let Context::Application(application_ctx) = ctx {
-        // Defer the response as ephemeral first
-        application_ctx.defer_ephemeral().await?;
+    let builder = poise::CreateReply::default()
+        .embed(config_embed)
+        .components(menu_rows)
+        .ephemeral(true);
 
-        // Then edit with our full response
-        application_ctx
-            .send(
-                poise::CreateReply::default()
-                    .embed(config_embed)
-                    .components(menu_rows),
-            )
-            .await?;
-    }
+    ctx.send(builder).await?;
 
     Ok(())
 }

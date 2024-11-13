@@ -1,12 +1,11 @@
-use ::serenity::all::CreateInteractionResponseFollowup;
 use anyhow::Error;
-use poise::serenity_prelude::{
-    self as serenity, CommandInteraction, CreateEmbed, CreateMessage, EditMessage, EmojiId,
-};
+use poise::serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, EditMessage, EmojiId};
 use std::time::Duration;
 use tokio::time::sleep;
 
-pub async fn handle_response(
+use crate::Context;
+
+pub async fn handle_event_response(
     ctx: &serenity::Context,
     user_message: &serenity::Message,
     bot_message: &serenity::Message,
@@ -23,13 +22,11 @@ pub async fn handle_response(
 
     // Supress embed
     if is_valid_response {
+        let builder = EditMessage::new().suppress_embeds(true);
+
         user_message
             .channel_id
-            .edit_message(
-                ctx,
-                user_message.id,
-                EditMessage::new().suppress_embeds(true),
-            )
+            .edit_message(ctx, user_message.id, builder)
             .await?;
 
         return Ok(());
@@ -70,8 +67,7 @@ pub async fn handle_response(
 }
 
 pub async fn handle_interaction_response(
-    ctx: &serenity::Context,
-    interaction: &CommandInteraction,
+    ctx: &Context<'_>,
     bot_message: &serenity::Message,
 ) -> Result<(), Error> {
     for _ in 0..10 {
@@ -92,14 +88,11 @@ pub async fn handle_interaction_response(
             .description("Something went wrong.")
             .color(0xd1001f);
 
-        interaction
-            .create_followup(
-                ctx,
-                CreateInteractionResponseFollowup::new()
-                    .add_embed(error_embed)
-                    .ephemeral(true),
-            )
-            .await?;
+        let builder = poise::CreateReply::default()
+            .embed(error_embed)
+            .ephemeral(true);
+
+        ctx.send(builder).await?;
     }
 
     Ok(())

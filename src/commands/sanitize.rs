@@ -28,12 +28,7 @@ pub async fn sanitize(
         let bot_message = ctx.say(response).await?;
         let bot_message = bot_message.message().await?;
 
-        handle_interaction_response(
-            ctx.serenity_context(),
-            &application_ctx.interaction,
-            &bot_message,
-        )
-        .await?;
+        handle_interaction_response(&ctx, &bot_message).await?;
     }
 
     Ok(())

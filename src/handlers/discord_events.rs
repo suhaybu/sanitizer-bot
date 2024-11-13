@@ -2,7 +2,7 @@ use anyhow::Error;
 use poise::serenity_prelude::{self as serenity, EmojiId};
 use tracing::{debug, info};
 
-use crate::handlers::{handle_response, sanitize_input};
+use crate::handlers::{handle_event_response, sanitize_input};
 use crate::Data;
 
 pub async fn get_event_handler(
@@ -52,7 +52,7 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
         )
         .await?;
 
-    handle_response(ctx, message, &bot_message).await?;
+    handle_event_response(ctx, message, &bot_message).await?;
 
     Ok(())
 }
