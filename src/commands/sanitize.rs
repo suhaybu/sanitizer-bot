@@ -10,8 +10,8 @@ const INVALID_URL_MESSAGE: &str =
     "❌ Invalid URL. Please provide a valid TikTok, Instagram, or Twitter/X link.";
 
 /// Fix the embed of your link! 🫧
-#[poise::command(slash_command)]
-pub async fn sanitize(
+#[poise::command(slash_command, rename = "sanitize")]
+pub async fn sanitize_slash(
     ctx: Context<'_>,
     #[description = "Your link goes here"] link: String,
 ) -> Result<(), Error> {
