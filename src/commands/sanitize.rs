@@ -1,4 +1,5 @@
 use anyhow::Error;
+use poise::serenity_prelude as serenity;
 
 use crate::handlers::handle_interaction_response;
 use crate::handlers::sanitize_input;
@@ -8,15 +9,15 @@ const INVALID_URL_MESSAGE: &str =
     "❌ Invalid URL. Please provide a valid TikTok, Instagram, or Twitter/X link.";
 
 /// Fix the embed of your link! 🫧
-#[poise::command(slash_command)]
+#[poise::command(context_menu_command = "Sanitize", slash_command)]
 pub async fn sanitize(
     ctx: Context<'_>,
-    #[description = "Your link goes here"] link: String,
+    #[description = "Your link goes here"] link: serenity::Message,
 ) -> Result<(), Error> {
     let _ = ctx.defer().await; // sends "Is thinking..." before response
 
     // Get initial response ready
-    let response = match sanitize_input(&link).await {
+    let response = match sanitize_input(&link.content).await {
         Some(sanitized_url) => sanitized_url,
         None => INVALID_URL_MESSAGE.to_string(),
     };
