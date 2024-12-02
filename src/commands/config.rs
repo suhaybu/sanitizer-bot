@@ -1,12 +1,12 @@
 use crate::Context;
-use anyhow::Error;
+use anyhow::Result;
 use poise::serenity_prelude::{
     CreateActionRow, CreateEmbed, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption,
 };
 
 /// Display bot configuration settings
 #[poise::command(slash_command)]
-pub async fn config(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn config(ctx: Context<'_>) -> Result<()> {
     let config_embed = CreateEmbed::new()
         .title("Sanitizer Settings 🛠️")
         .description(

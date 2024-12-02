@@ -1,4 +1,4 @@
-use anyhow::Error;
+use anyhow::Result;
 use poise::serenity_prelude as serenity;
 
 use crate::handlers::handle_interaction_response;
@@ -17,7 +17,7 @@ const INVALID_URL_MESSAGE: &str =
 pub async fn sanitize_slash(
     ctx: Context<'_>,
     #[description = "Your link goes here"] link: String,
-) -> Result<(), Error> {
+) -> Result<()> {
     sanitize_handler(ctx, link).await
 }
 
@@ -25,11 +25,11 @@ pub async fn sanitize_slash(
     context_menu_command = "Sanitize",
     required_permissions = "SEND_MESSAGES"
 )]
-pub async fn sanitize_menu(ctx: Context<'_>, link: serenity::Message) -> Result<(), Error> {
+pub async fn sanitize_menu(ctx: Context<'_>, link: serenity::Message) -> Result<()> {
     sanitize_handler(ctx, link.content).await
 }
 
-async fn sanitize_handler(ctx: Context<'_>, link: String) -> Result<(), Error> {
+async fn sanitize_handler(ctx: Context<'_>, link: String) -> Result<()> {
     let _ = ctx.defer().await; // sends "Is thinking..." before response
 
     // Get initial response ready

@@ -1,11 +1,11 @@
-use anyhow::Error;
+use anyhow::Result;
 use poise::serenity_prelude as serenity;
 
 use crate::Context;
 
 /// Roll the credits! 🎺
 #[poise::command(slash_command)]
-pub async fn credits(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn credits(ctx: Context<'_>) -> Result<()> {
     let embed = serenity::CreateEmbed::new()
         .title("Credits")
         .description("These are all the super cool projects I rely on:\n\
