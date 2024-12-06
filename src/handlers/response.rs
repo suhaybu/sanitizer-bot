@@ -1,15 +1,15 @@
-use anyhow::Error;
 use poise::serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, EditMessage, EmojiId};
 use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::Context;
+use crate::Result;
 
 pub async fn handle_event_response(
     ctx: &serenity::Context,
     user_message: &serenity::Message,
     bot_message: &serenity::Message,
-) -> Result<(), Error> {
+) -> Result<()> {
     // Wait for embeds to appear (up to 10 seconds)
     for _ in 0..10 {
         sleep(Duration::from_secs(1)).await;
@@ -69,7 +69,7 @@ pub async fn handle_event_response(
 pub async fn handle_interaction_response(
     ctx: &Context<'_>,
     bot_message: &serenity::Message,
-) -> Result<(), Error> {
+) -> Result<()> {
     for _ in 0..10 {
         sleep(Duration::from_secs(1)).await;
         if !bot_message.embeds.is_empty() {
