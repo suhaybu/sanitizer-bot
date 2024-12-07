@@ -31,10 +31,10 @@ rustflags = ["--cfg", "tokio_unstable"]
 
 [dependencies.serenity]
 git = "https://github.com/serenity-rs/serenity"
-branch = "next"
-# rev = "414fdf78705d1950ec1c78dbb2f75d451a9956eb"
+# branch = "next"
+rev = "d1a786beeb424d5aa5e5327a288a0dd9327f2521"
 
 [dependencies.poise]
 git = "https://github.com/serenity-rs/poise"
-branch = "current"
-# rev = "db10b126c8b07f7e1924cba1672f04ff24ed4ec7"
+# branch = "current"
+rev = "db10b126c8b07f7e1924cba1672f04ff24ed4ec7"
