@@ -9,7 +9,7 @@ mod commands;
 mod config;
 mod handlers;
 
-pub type Context<'a> = poise::Context<'a, Data, Error>;
+pub type Context<'a> = poise::ApplicationContext<'a, Data, Error>;
 
 #[tokio::main]
 async fn main() -> Result<()> {
