@@ -34,7 +34,12 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
     }
 
     let input = message.content.trim();
-    debug!("Processing input: {}", input);
+    if !input.to_lowercase().contains("http") {
+        debug!("No URL found in message");
+        return Ok(());
+    }
+
+    debug!("URL found, processing input: {}", input);
 
     let response = match sanitize_input(input).await {
         None => return Ok(()), // Exit early if no match
