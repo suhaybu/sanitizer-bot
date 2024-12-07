@@ -15,6 +15,12 @@ fn setup_logging() -> Result<()> {
         EnvFilter::try_new("info,serenity=warn").expect("Invalid default filter")
     });
 
+    // Debug mode
+    // let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+    //     EnvFilter::try_new("sanitizer_bot_rs=debug,serenity=warn,rustls=warn,tungstenite=warn")
+    //         .expect("Invalid default filter")
+    // });
+
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(false)
