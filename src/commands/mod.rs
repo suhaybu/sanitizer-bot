@@ -8,7 +8,7 @@ pub fn get_all() -> Vec<poise::Command<Data, Error>> {
     vec![
         sanitize::sanitize_slash(),
         sanitize::sanitize_menu(),
-        config::config(),
+        // config::config(),
         credits::credits(),
     ]
 }
