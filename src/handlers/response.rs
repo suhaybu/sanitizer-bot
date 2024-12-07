@@ -46,17 +46,6 @@ pub async fn handle_event_response(
                 .description("Something went wrong.")
                 .color(0xd1001f);
 
-            // user_message
-            //     .delete_reaction_emoji(
-            //         ctx,
-            //         serenity::ReactionType::Custom {
-            //             animated: false,
-            //             id: EmojiId::new(1206376642042138724),
-            //             name: Some("Sanitized".to_string()),
-            //         },
-            //     )
-            //     .await?;
-
             let error_message = user_message
                 .channel_id
                 .send_message(
@@ -80,14 +69,27 @@ pub async fn handle_interaction_response(
     ctx: &Context<'_>,
     bot_message: &serenity::Message,
 ) -> Result<()> {
+    debug!(
+        "Starting interaction response handler for message ID: {}",
+        bot_message.id
+    );
+    debug!("Initial embed count: {}", bot_message.embeds.len());
+    debug!("Message content: {}", bot_message.content);
+
     let valid_response = tokio::time::timeout(Duration::from_secs(10), async {
+        debug!("Entering timeout block, waiting for embeds");
         while bot_message.embeds.is_empty() {
+            debug!("No embeds yet, sleeping...");
             sleep(Duration::from_secs(1)).await;
+            debug!("Current embed count: {}", bot_message.embeds.len());
         }
+        debug!("Embeds found, checking response validity");
         check_bot_response(bot_message)
     })
     .await
     .unwrap_or(false);
+
+    debug!("Response validity check completed: {}", valid_response);
 
     if !valid_response {
         if ctx.guild_id().is_some() {
@@ -124,23 +126,41 @@ pub async fn handle_interaction_response(
 
 // Logic used to validate if response is true
 fn check_bot_response(bot_message: &serenity::Message) -> bool {
+    debug!("Checking bot response for message ID: {}", bot_message.id);
+
+    if bot_message.embeds.is_empty() {
+        debug!("No embeds found in message");
+        return false;
+    }
+
+    let f_embed = bot_message.embeds.first().unwrap();
+    debug!("First embed: {:?}", f_embed);
+
+    if f_embed.video.is_some() {
+        debug!("Video embed found - valid response");
+        return true;
+    }
+
     match &bot_message.content {
-        content if content.contains("fxtwitter.com") => !matches!(
-            bot_message
-                .embeds
-                .first()
-                .and_then(|e| e.title.as_ref())
-                .map(String::as_str),
-            Some("FxTwitter / FixupX")
-        ),
-        content if content.contains("ddinstagram.com") => !matches!(
-            bot_message
-                .embeds
-                .first()
-                .and_then(|e| e.title.as_ref())
-                .map(String::as_str),
-            Some("InstaFix") | Some("Login • Instagram")
-        ),
-        _ => true,
+        content if content.contains("fxtwitter.com") => {
+            let valid = f_embed.description.as_deref() != Some("Sorry, that post doesn't exist :(");
+            debug!(
+                "Twitter response: valid={}, description={:?}",
+                valid, f_embed.description
+            );
+            valid
+        }
+        content if content.contains("ddinstagram.com") => {
+            let valid = f_embed.description.as_deref() != Some("Post might not be available");
+            debug!(
+                "Instagram response: valid={}, description={:?}",
+                valid, f_embed.description
+            );
+            valid
+        }
+        _ => {
+            debug!("Unknown platform - defaulting to valid");
+            true
+        }
     }
 }
