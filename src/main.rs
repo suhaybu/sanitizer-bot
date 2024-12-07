@@ -25,7 +25,8 @@ async fn run() -> Result<()> {
     config::setup::init()?;
     let token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN not found in environment");
 
-    let intents = serenity::GatewayIntents::all();
+    let intents =
+        serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
     let framework = Framework::builder()
         .options(FrameworkOptions {
