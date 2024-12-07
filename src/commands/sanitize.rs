@@ -13,7 +13,9 @@ const INVALID_URL_MESSAGE: &str =
 #[poise::command(
     slash_command,
     rename = "sanitize",
-    default_member_permissions = "SEND_MESSAGES"
+    default_member_permissions = "SEND_MESSAGES",
+    install_context = "Guild|User",
+    interaction_context = "Guild|BotDm|PrivateChannel"
 )]
 pub async fn sanitize_slash(
     ctx: Context<'_>,
@@ -24,7 +26,9 @@ pub async fn sanitize_slash(
 
 #[poise::command(
     context_menu_command = "Sanitize",
-    required_permissions = "SEND_MESSAGES"
+    required_permissions = "SEND_MESSAGES",
+    install_context = "Guild|User",
+    interaction_context = "Guild|BotDm|PrivateChannel"
 )]
 pub async fn sanitize_menu(ctx: Context<'_>, link: serenity::Message) -> Result<()> {
     sanitize_handler(ctx, link.content).await
