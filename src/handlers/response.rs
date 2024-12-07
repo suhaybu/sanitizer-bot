@@ -1,5 +1,5 @@
 use poise::serenity_prelude::EditInteractionResponse;
-use poise::serenity_prelude::{self as srn, CreateEmbed, CreateMessage, EditMessage};
+use poise::serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, EditMessage};
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::debug;
@@ -9,9 +9,9 @@ use crate::Result;
 
 // On message (Listener)
 pub async fn handle_event_response(
-    ctx: &srn::Context,
-    user_message: &srn::Message,
-    bot_message: &srn::Message,
+    ctx: &serenity::Context,
+    user_message: &serenity::Message,
+    bot_message: &serenity::Message,
 ) -> Result<()> {
     // Wait for embeds to appear (up to 10 seconds)
     let valid_response = tokio::time::timeout(Duration::from_secs(10), async {
@@ -49,7 +49,7 @@ pub async fn handle_event_response(
             // user_message
             //     .delete_reaction_emoji(
             //         ctx,
-            //         srn::ReactionType::Custom {
+            //         serenity::ReactionType::Custom {
             //             animated: false,
             //             id: EmojiId::new(1206376642042138724),
             //             name: Some("Sanitized".to_string()),
@@ -78,7 +78,7 @@ pub async fn handle_event_response(
 // On interaction (Command invokation)
 pub async fn handle_interaction_response(
     ctx: &Context<'_>,
-    bot_message: &srn::Message,
+    bot_message: &serenity::Message,
 ) -> Result<()> {
     let valid_response = tokio::time::timeout(Duration::from_secs(10), async {
         while bot_message.embeds.is_empty() {
@@ -123,7 +123,7 @@ pub async fn handle_interaction_response(
 }
 
 // Logic used to validate if response is true
-fn check_bot_response(bot_message: &srn::Message) -> bool {
+fn check_bot_response(bot_message: &serenity::Message) -> bool {
     match &bot_message.content {
         content if content.contains("fxtwitter.com") => !matches!(
             bot_message

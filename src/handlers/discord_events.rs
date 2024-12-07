@@ -1,21 +1,21 @@
 use anyhow::Error;
-use poise::serenity_prelude as srn;
+use poise::serenity_prelude as serenity;
 use tracing::{debug, info};
 
 use crate::handlers::{handle_event_response, sanitize_input};
 use crate::Data;
 
 pub async fn get_event_handler(
-    ctx: &srn::Context,
-    event: &srn::FullEvent,
+    ctx: &serenity::Context,
+    event: &serenity::FullEvent,
     _framework: poise::FrameworkContext<'_, Data, Error>,
     _data: &Data,
 ) -> Result<(), Error> {
     match event {
-        srn::FullEvent::Ready { data_about_bot, .. } => {
+        serenity::FullEvent::Ready { data_about_bot, .. } => {
             info!("🤖 {} is Online", data_about_bot.user.name.to_string())
         }
-        srn::FullEvent::Message { new_message } => {
+        serenity::FullEvent::Message { new_message } => {
             on_message(ctx, new_message).await?;
         }
         _ => {}
@@ -23,7 +23,7 @@ pub async fn get_event_handler(
     Ok(())
 }
 
-async fn on_message(ctx: &srn::Context, message: &srn::Message) -> Result<(), Error> {
+async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Result<(), Error> {
     debug!("Message received from user: {}", message.author.name);
     debug!("Channel type: {:?}", message.channel_id);
 
@@ -46,7 +46,7 @@ async fn on_message(ctx: &srn::Context, message: &srn::Message) -> Result<(), Er
     // message
     //     .react(
     //         ctx,
-    //         srn::ReactionType::Custom {
+    //         serenity::ReactionType::Custom {
     //             animated: false,
     //             id: EmojiId::new(1206376642042138724),
     //             name: Some("Sanitized".to_string()),
