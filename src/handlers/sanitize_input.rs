@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use tracing::debug;
 
 use crate::handlers::{ParsedURL, QuickVidsAPI};
 
@@ -9,7 +10,9 @@ const INSTAGRAM_TEMPLATE: &str = "[{0} via Instagram](https://g.ddinstagram.com/
 const TIKTOK_TEMPLATE: &str = "[@{0} via TikTok]({1})";
 
 pub async fn sanitize_input(user_input: &str) -> Option<String> {
+    debug!("Attempting to parse URL: {}", user_input);
     let parsed_url = ParsedURL::new(user_input)?;
+    debug!("URL parsed as: {:?}", parsed_url);
     let api_client = QuickVidsAPI::new();
 
     let format_post_type = |post_type: &str| -> Cow<'_, str> {
