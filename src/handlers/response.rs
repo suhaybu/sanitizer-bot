@@ -73,6 +73,12 @@ pub async fn handle_interaction_response(
     debug!("Initial embed count: {}", bot_message.embeds.len());
     debug!("Message content: {}", bot_message.content);
 
+    // Skip validation for private channels
+    if ctx.interaction.context == Some(serenity::InteractionContext::PrivateChannel) {
+        debug!("Skipping validation for private channel");
+        return Ok(());
+    }
+
     let valid_response = wait_for_embed(
         &ctx.serenity_context(),
         bot_message.id,
@@ -85,7 +91,7 @@ pub async fn handle_interaction_response(
     debug!("Response validity check completed: {}", valid_response);
 
     if !valid_response {
-        if ctx.guild_id().is_some() {
+        if is_guild_install(&ctx) {
             // Delete the invalid bot message
             bot_message.delete(ctx).await?;
             // Create and send ephemeral error message
@@ -100,6 +106,7 @@ pub async fn handle_interaction_response(
 
             ctx.send(builder).await?;
         } else {
+            // TODO: Edits valid response
             ctx.interaction
                 .edit_response(
                     ctx,
@@ -182,4 +189,17 @@ async fn wait_for_embed(
     }
 
     None
+}
+
+fn is_guild_install(ctx: &Context<'_>) -> bool {
+    ctx.interaction
+        .authorizing_integration_owners
+        .0
+        .iter()
+        .any(|owner| {
+            matches!(
+                owner,
+                poise::serenity_prelude::AuthorizingIntegrationOwner::GuildInstall(_)
+            )
+        })
 }
