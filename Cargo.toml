@@ -18,12 +18,12 @@ console-subscriber = "0.4"
 
 [profile.release]
 strip = true      # Automatically strip symbols from the binary.
-lto = "fat"
+lto = true
 codegen-units = 1 # Optimize for size
 opt-level = 3     # Maximum optimization
 
-[build]
-rustflags = ["--cfg", "tokio_unstable"]
+# [build]
+# rustflags = ["--cfg", "tokio_unstable"]
 
 # [patch.crates-io.serenity]
 # git = "https://github.com/serenity-rs/serenity"
