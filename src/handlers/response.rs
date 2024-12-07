@@ -1,5 +1,6 @@
-use poise::serenity_prelude::EditInteractionResponse;
-use poise::serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, EditMessage};
+use poise::serenity_prelude::{
+    self as serenity, CreateEmbed, CreateMessage, EditInteractionResponse, EditMessage,
+};
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::debug;
@@ -14,14 +15,10 @@ pub async fn handle_event_response(
     bot_message: &serenity::Message,
 ) -> Result<()> {
     // Wait for embeds to appear (up to 10 seconds)
-    let valid_response = tokio::time::timeout(Duration::from_secs(10), async {
-        while bot_message.embeds.is_empty() {
-            sleep(Duration::from_secs(1)).await;
-        }
-        check_bot_response(bot_message)
-    })
-    .await
-    .unwrap_or(false);
+    let valid_response = wait_for_embed(&ctx, bot_message.id, bot_message.channel_id)
+        .await
+        .map(|msg| check_bot_response(&msg))
+        .unwrap_or(false);
 
     match (valid_response, user_message.guild_id.is_some()) {
         (true, true) => {
@@ -29,7 +26,7 @@ pub async fn handle_event_response(
             user_message
                 .channel_id
                 .edit_message(
-                    ctx,
+                    &ctx,
                     user_message.id,
                     EditMessage::new().suppress_embeds(true),
                 )
@@ -76,17 +73,13 @@ pub async fn handle_interaction_response(
     debug!("Initial embed count: {}", bot_message.embeds.len());
     debug!("Message content: {}", bot_message.content);
 
-    let valid_response = tokio::time::timeout(Duration::from_secs(10), async {
-        debug!("Entering timeout block, waiting for embeds");
-        while bot_message.embeds.is_empty() {
-            debug!("No embeds yet, sleeping...");
-            sleep(Duration::from_secs(1)).await;
-            debug!("Current embed count: {}", bot_message.embeds.len());
-        }
-        debug!("Embeds found, checking response validity");
-        check_bot_response(bot_message)
-    })
+    let valid_response = wait_for_embed(
+        &ctx.serenity_context(),
+        bot_message.id,
+        bot_message.channel_id,
+    )
     .await
+    .map(|msg| check_bot_response(&msg))
     .unwrap_or(false);
 
     debug!("Response validity check completed: {}", valid_response);
@@ -163,4 +156,30 @@ fn check_bot_response(bot_message: &serenity::Message) -> bool {
             true
         }
     }
+}
+
+async fn wait_for_embed(
+    ctx: &serenity::Context,
+    message_id: serenity::MessageId,
+    channel_id: serenity::ChannelId,
+) -> Option<serenity::Message> {
+    if let Ok(msg) = channel_id.message(&ctx.http, message_id).await {
+        if !msg.embeds.is_empty() {
+            return Some(msg);
+        }
+    }
+
+    let timeout = Duration::from_secs(8);
+    let start = std::time::Instant::now();
+
+    while start.elapsed() < timeout {
+        if let Ok(msg) = channel_id.message(&ctx.http, message_id).await {
+            if !msg.embeds.is_empty() {
+                return Some(msg);
+            }
+        }
+        sleep(Duration::from_millis(500)).await;
+    }
+
+    None
 }
