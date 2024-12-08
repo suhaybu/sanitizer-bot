@@ -199,7 +199,7 @@ fn is_guild_install(ctx: &Context<'_>) -> bool {
         .any(|owner| {
             matches!(
                 owner,
-                poise::serenity_prelude::AuthorizingIntegrationOwner::GuildInstall(_)
+                serenity::AuthorizingIntegrationOwner::GuildInstall(_)
             )
         })
 }
