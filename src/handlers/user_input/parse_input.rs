@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use tracing::debug;
 
-use super::{parse_url::ParsedURL, quickvids_api::QuickVidsAPI};
+use super::{external_api::QuickVidsAPI, parse_url::ParsedURL};
 
 // Responses
 const TWITTER_TEMPLATE: &str = "[@{0} via X (Twitter)](https://fxtwitter.com{1})";
