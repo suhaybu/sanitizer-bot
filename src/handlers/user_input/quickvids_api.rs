@@ -1,7 +1,6 @@
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
-use std::sync::LazyLock;
-use std::time::Duration;
+use std::{sync::LazyLock, time::Duration};
 
 const API_URL: &str = "https://api.quickvids.app/v2/quickvids/shorturl";
 static API_TOKEN: LazyLock<String> =
@@ -10,7 +9,7 @@ static API_TOKEN: LazyLock<String> =
 static CLIENT: LazyLock<Client> = LazyLock::new(|| {
     ClientBuilder::new()
         .timeout(Duration::from_secs(3)) // 2 second total timeout
-        .connect_timeout(Duration::from_secs(2)) // 1 second connect timeout
+        .connect_timeout(Duration::from_secs(2)) // 2 second connect timeout
         .pool_max_idle_per_host(1) // Single connection for infrequent use
         .use_rustls_tls()
         .build()
