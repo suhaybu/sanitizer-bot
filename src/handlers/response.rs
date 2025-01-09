@@ -9,7 +9,7 @@ use crate::Context;
 use crate::Result;
 
 // On message (Listener)
-pub async fn handle_event_response(
+pub async fn handle_response_event(
     ctx: &serenity::Context,
     user_message: &serenity::Message,
     bot_message: &serenity::Message,
@@ -61,8 +61,8 @@ pub async fn handle_event_response(
     Ok(())
 }
 
-// On interaction (Command invokation)
-pub async fn handle_interaction_response(
+// On interaction (Command invocation)
+pub async fn handle_response_interaction(
     ctx: &Context<'_>,
     bot_message: &serenity::Message,
 ) -> Result<()> {
@@ -124,7 +124,7 @@ pub async fn handle_interaction_response(
     Ok(())
 }
 
-// Logic used to validate if response is true
+// Logic used to validate if bot's response is valid
 fn check_bot_response(bot_message: &serenity::Message) -> bool {
     debug!("Checking bot response for message ID: {}", bot_message.id);
 
@@ -191,6 +191,7 @@ async fn wait_for_embed(
     None
 }
 
+// Checks if context is Guild Install
 fn is_guild_install(ctx: &Context<'_>) -> bool {
     ctx.interaction
         .authorizing_integration_owners

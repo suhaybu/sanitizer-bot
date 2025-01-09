@@ -1,3 +1,4 @@
+// This file contains the logic for making the necessary external API calls
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use std::{sync::LazyLock, time::Duration};

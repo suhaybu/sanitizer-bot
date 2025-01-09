@@ -2,7 +2,7 @@ use anyhow::Result;
 use poise::serenity_prelude as serenity;
 use tracing::debug;
 
-use crate::handlers::handle_interaction_response;
+use crate::handlers::handle_response_interaction;
 use crate::handlers::sanitize_input;
 use crate::Context;
 
@@ -59,7 +59,7 @@ async fn sanitize_handler(ctx: Context<'_>, link: String) -> Result<()> {
     let bot_message = ctx.say(response).await?;
     let bot_message = bot_message.message().await?;
 
-    handle_interaction_response(&ctx, &bot_message).await?;
+    handle_response_interaction(&ctx, &bot_message).await?;
 
     Ok(())
 }

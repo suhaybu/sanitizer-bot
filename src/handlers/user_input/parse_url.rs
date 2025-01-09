@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// Regex logic
 use regex::{Regex, RegexSet, RegexSetBuilder};
 use std::borrow::Cow;
 use std::sync::LazyLock;
@@ -36,13 +36,17 @@ fn build_regex_set() -> RegexResult<RegexSet> {
 #[derive(Debug, PartialEq)]
 pub enum ParsedURL<'a> {
     /// Captures for TikTok URLs
+    ///
     /// Example URL: "https://vt.tiktok.com/ZSYXeWygm/"
+    ///
     /// Captures:
     ///   - url: "https://vt.tiktok.com/ZSYXeWygm/"
     Tiktok { url: Cow<'a, str> },
 
     /// Captures for Instagram URLs
+    ///
     /// Example URL: "https://www.instagram.com/p/C9uiuh4KTlR/"
+    ///
     /// Captures:
     ///   - url: "https://www.instagram.com/p/C9uiuh4KTlR"
     ///   - post_type: "p"      (can be "p"|"reel")
@@ -54,7 +58,9 @@ pub enum ParsedURL<'a> {
     },
 
     /// Captures for Twitter/X URLs
+    ///
     /// Example URL: "https://www.twitter.com/rit_chill/status/1756388311445221859"
+    ///
     /// Captures:
     ///   - url: "https://www.twitter.com/rit_chill/status/1756388311445221859"
     ///   - username: "rit_chill"
