@@ -31,8 +31,8 @@ opt-level = 3     # Maximum optimization
 
 [dependencies.serenity]
 git = "https://github.com/serenity-rs/serenity"
-# branch = "next"
-rev = "d1a786beeb424d5aa5e5327a288a0dd9327f2521"
+# branch = "current"
+rev = "25a4de8fd6f0bc13b875175cafba17a373268c26"
 
 [dependencies.poise]
 git = "https://github.com/serenity-rs/poise"
