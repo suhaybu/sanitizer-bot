@@ -4,11 +4,11 @@ use poise::serenity_prelude::{
     CreateActionRow, CreateEmbed, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption,
 };
 
-/// Display bot configuration settings
+/// Display bot settings
 #[poise::command(slash_command)]
-pub async fn config(ctx: Context<'_>) -> Result<()> {
-    let config_embed = CreateEmbed::new()
-        .title("Sanitizer Settings 🛠️")
+pub async fn settings(ctx: Context<'_>) -> Result<()> {
+    let settings_embed = CreateEmbed::new()
+        .title("⚙️")
         .description(
             "**Sanitizer mode**\n\
             Switch between **Automatic** and **Manual** modes.\n\n\
@@ -21,8 +21,8 @@ pub async fn config(ctx: Context<'_>) -> Result<()> {
 
     // Create sanitizer mode options
     let sanitizer_options = vec![
-        CreateSelectMenuOption::new("Automatic", "746243167")
-            .description("Bot automatically fixes all compatible links (Default)")
+        CreateSelectMenuOption::new("Automatic (Default)", "746243167")
+            .description("Bot automatically fixes all compatible links")
             .emoji('🤖'),
         CreateSelectMenuOption::new("Manual (Emote)", "78295750")
             .description("Fix links by reacting with 🫧")
@@ -89,7 +89,7 @@ pub async fn config(ctx: Context<'_>) -> Result<()> {
     ];
 
     let builder = poise::CreateReply::default()
-        .embed(config_embed)
+        .embed(settings_embed)
         .components(menu_rows)
         .ephemeral(true);
 
