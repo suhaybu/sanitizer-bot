@@ -91,7 +91,7 @@ pub async fn handle_response_interaction(
     debug!("Response validity check completed: {}", valid_response);
 
     if !valid_response {
-        if is_guild_install(&ctx) {
+        if super::user_input::is_guild_install(&ctx) {
             // Delete the invalid bot message
             bot_message.delete(ctx).await?;
             // Create and send ephemeral error message
@@ -189,18 +189,4 @@ async fn wait_for_embed(
     }
 
     None
-}
-
-// Checks if context is Guild Install
-fn is_guild_install(ctx: &Context<'_>) -> bool {
-    ctx.interaction
-        .authorizing_integration_owners
-        .0
-        .iter()
-        .any(|owner| {
-            matches!(
-                owner,
-                serenity::AuthorizingIntegrationOwner::GuildInstall(_)
-            )
-        })
 }
