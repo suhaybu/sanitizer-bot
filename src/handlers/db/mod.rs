@@ -1,6 +1,7 @@
-use anyhow::{Context as _, Result};
+use anyhow::{Context, Result};
+use models::ServerConfig;
 use mongodb::{
-    bson::Document,
+    bson::{doc, Document},
     options::{ClientOptions, ServerApi, ServerApiVersion},
 };
 use std::sync::Arc;
@@ -52,4 +53,57 @@ impl DatabaseConnection {
             .map_err(|_| anyhow::anyhow!("Database already initialized"))?;
         Ok(())
     }
+}
+
+pub async fn get_server_config(guild_id: i64) -> Result<ServerConfig> {
+    let db = DatabaseConnection::get().await?;
+    let collection = db.get_collection("server_configs");
+
+    let filter = doc! { "_id": guild_id };
+    let result = collection
+        .find_one(filter)
+        .await
+        .context("Failed to fetch server config")?;
+
+    match result {
+        Some(doc) => {
+            let config: ServerConfig =
+                mongodb::bson::from_document(doc).context("Failed to fetch server config")?;
+            Ok(config)
+        }
+        None => Ok(ServerConfig {
+            guild_id,
+            sanitizer_mode: models::SanitizerMode::Automatic,
+            delete_permission: models::DeletePermission::AuthorAndMods,
+            hide_original_embed: true,
+        }),
+    }
+}
+
+pub async fn update_server_config(config: &ServerConfig) -> Result<()> {
+    let db = DatabaseConnection::get().await?;
+    let collection = db.get_collection("server_configs");
+
+    let filter = doc! { "_id": config.guild_id };
+    let update = mongodb::bson::to_document(config).context("Failed to serialize config")?;
+
+    collection
+        .replace_one(filter, update)
+        .await
+        .context("Failed to update server config")?;
+
+    Ok(())
+}
+
+pub async fn delete_server_config(guild_id: i64) -> Result<()> {
+    let db = DatabaseConnection::get().await?;
+    let collection = db.get_collection("server_configs");
+
+    let filter = doc! { "_id": guild_id };
+    collection
+        .delete_one(filter)
+        .await
+        .context("Failed to delete server config");
+
+    Ok(())
 }
