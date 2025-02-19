@@ -1,7 +1,7 @@
 # Sanitizer Bot (Rust)
 
 ### ⚠️ This project is still in early development ⚠️
-This project is a Rust implementation of [Sanitizer Bot (Python)](https://github.com/Suhaybu/sanitizer-bot-py) 
+This project is a Rust implementation of [Sanitizer Bot (Python)](https://github.com/Suhaybu/sanitizer-bot-py)
 
 ## Introduction
 
@@ -24,6 +24,9 @@ The bot is developed in Rust using the `serenity.rs` library. Click [here](https
 -   **Handles Direct Messages:** Will attempt to fix links sent in private.
 -   **Implemented QuickVids API:** Implemented QuickVids API to convert TikTok links into embeddable content in discord.
 
+
+## Build
+```colima stop && colima start --cpu 4 --memory 4 && COMPOSE_HTTP_TIMEOUT=300 docker-compose up --build```
 
 ## Usage
 
