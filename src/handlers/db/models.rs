@@ -1,0 +1,52 @@
+// TODO
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[repr(u8)]
+pub enum SanitizerMode {
+    Automatic = 0,
+    ManualEmote = 1,
+    ManualMention = 2,
+    ManualBoth = 3,
+}
+
+impl From<u8> for SanitizerMode {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => SanitizerMode::Automatic,
+            1 => SanitizerMode::ManualEmote,
+            2 => SanitizerMode::ManualMention,
+            3 => SanitizerMode::ManualBoth,
+            _ => SanitizerMode::Automatic, // Default
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[repr(u8)]
+pub enum DeletePermission {
+    AuthorAndMods = 0,
+    Everyone = 1,
+    Disabled = 2,
+}
+
+impl From<u8> for DeletePermission {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => DeletePermission::AuthorAndMods,
+            1 => DeletePermission::Everyone,
+            2 => DeletePermission::Disabled,
+            _ => DeletePermission::AuthorAndMods, // Default
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+
+pub struct ServerConfig {
+    #[serde(rename = "_id")]
+    pub guild_id: i64,
+    pub sanitizer_mode: SanitizerMode,
+    pub delete_permission: DeletePermission,
+    pub hide_original_embed: bool,
+}
