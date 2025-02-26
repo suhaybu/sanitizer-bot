@@ -1,4 +1,5 @@
-mod db;
+pub mod db;
+
 mod event;
 mod response;
 mod user_input;
