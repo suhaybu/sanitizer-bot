@@ -43,4 +43,4 @@ opt-level = 3     # Maximum optimization
 [dependencies.poise]
 git = "https://github.com/serenity-rs/poise"
 # branch = "current"
-rev = "db10b126c8b07f7e1924cba1672f04ff24ed4ec7"
+rev = "2c99507892037da2ec1b51b698e998349f1a9e31"
