@@ -2,21 +2,23 @@ use anyhow::Error;
 use poise::serenity_prelude as serenity;
 use tracing::{debug, info};
 
-use crate::handlers::{handle_response_event, sanitize_input};
 use crate::Data;
+use crate::handlers::{handle_response_event, sanitize_input};
 
 pub async fn get_event_handler(
-    ctx: &serenity::Context,
+    framework: poise::FrameworkContext<'_, Data, Error>,
     event: &serenity::FullEvent,
-    _framework: poise::FrameworkContext<'_, Data, Error>,
-    _data: &Data,
 ) -> Result<(), Error> {
+    let ctx = framework.serenity_context;
+    // let data = framework.user_data;
+
     match event {
         serenity::FullEvent::Ready { data_about_bot, .. } => {
             info!("🤖 {} is Online", data_about_bot.user.name.to_string())
         }
         serenity::FullEvent::Message { new_message } => {
-            on_message(ctx, new_message).await?;
+            // TODO: Add some kind of verification here to check SERVER_ID pref
+            on_message(&ctx, new_message).await?;
         }
         _ => {}
     }
