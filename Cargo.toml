@@ -19,8 +19,7 @@ tokio = { version = "1.21", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 console-subscriber = "0.4"
-
-mongodb = "3.2"
+libsql = "0.9.7"
 
 [profile.release]
 strip = true      # Automatically strip symbols from the binary.

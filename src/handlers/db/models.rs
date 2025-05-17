@@ -45,7 +45,7 @@ impl From<u8> for DeletePermission {
 
 pub struct ServerConfig {
     #[serde(rename = "_id")]
-    pub guild_id: i64,
+    pub guild_id: u64,
     pub sanitizer_mode: SanitizerMode,
     pub delete_permission: DeletePermission,
     pub hide_original_embed: bool,
