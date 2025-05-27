@@ -60,3 +60,14 @@ pub struct ServerConfig {
     pub delete_permission: DeletePermission,
     pub hide_original_embed: bool,
 }
+
+impl ServerConfig {
+    pub fn default(guild_id: u64) -> Self {
+        Self {
+            guild_id,
+            sanitizer_mode: SanitizerMode::Automatic,
+            delete_permission: DeletePermission::AuthorAndMods,
+            hide_original_embed: false,
+        }
+    }
+}
