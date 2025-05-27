@@ -10,6 +10,12 @@ pub enum SanitizerMode {
     ManualBoth = 3,
 }
 
+impl Default for SanitizerMode {
+    fn default() -> Self {
+        SanitizerMode::Automatic
+    }
+}
+
 impl From<u8> for SanitizerMode {
     fn from(value: u8) -> Self {
         match value {
@@ -30,6 +36,12 @@ pub enum DeletePermission {
     Disabled = 2,
 }
 
+impl Default for DeletePermission {
+    fn default() -> Self {
+        DeletePermission::AuthorAndMods
+    }
+}
+
 impl From<u8> for DeletePermission {
     fn from(value: u8) -> Self {
         match value {
@@ -42,9 +54,7 @@ impl From<u8> for DeletePermission {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-
 pub struct ServerConfig {
-    #[serde(rename = "_id")]
     pub guild_id: u64,
     pub sanitizer_mode: SanitizerMode,
     pub delete_permission: DeletePermission,
