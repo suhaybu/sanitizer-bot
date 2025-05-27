@@ -3,9 +3,14 @@ use dotenvy::dotenv;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
+use crate::handlers::db;
+
 pub fn init() -> Result<()> {
     setup_logging()?;
     dotenv().expect("Critical Error: Failed to load .env file");
+
+    let _conn = db::get_connection()?;
+
     debug!("Initialization complete");
     Ok(())
 }

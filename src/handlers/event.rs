@@ -5,6 +5,8 @@ use tracing::{debug, info};
 use crate::Data;
 use crate::handlers::{handle_response_event, sanitize_input};
 
+use super::db::models::ServerConfig;
+
 pub async fn get_event_handler(
     framework: poise::FrameworkContext<'_, Data, Error>,
     event: &serenity::FullEvent,
@@ -19,6 +21,9 @@ pub async fn get_event_handler(
         serenity::FullEvent::Message { new_message } => {
             // TODO: Add some kind of verification here to check SERVER_ID pref
             on_message(&ctx, new_message).await?;
+        }
+        serenity::FullEvent::GuildCreate { guild, .. } => {
+            let _config = ServerConfig::get_or_default(guild.id.get()).await?;
         }
         _ => {}
     }
@@ -35,6 +40,19 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
         return Ok(());
     }
 
+    let server_config = if let Some(guild_id) = message.guild_id {
+        Some(ServerConfig::get_or_default(guild_id.get()).await?)
+    } else {
+        None
+    };
+
+    if let Some(config) = &server_config {
+        match config.sanitizer_mode {
+            crate::handlers::db::SanitizerMode::ManualMention => {}
+            _ => {}
+        }
+    }
+
     let input = message.content.trim();
     if !input.to_lowercase().contains("http") {
         debug!("No URL found in message");
@@ -49,6 +67,19 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
     };
 
     let bot_message = message.reply(ctx, response).await?;
+
+    if let Some(config) = server_config {
+        if config.hide_original_embed && message.guild_id.is_some() {
+            message
+                .channel_id
+                .edit_message(
+                    ctx,
+                    message.id,
+                    serenity::EditMessage::new().suppress_embeds(true),
+                )
+                .await?;
+        }
+    }
 
     // message
     //     .react(
