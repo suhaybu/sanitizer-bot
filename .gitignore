@@ -3,3 +3,7 @@
 .DS_Store
 
 Cargo.lock
+
+local.db
+local.db-shm
+local.db-wal
