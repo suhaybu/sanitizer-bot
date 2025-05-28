@@ -8,7 +8,8 @@ impl ServerConfig {
     pub async fn get_or_default(guild_id: u64) -> Result<Self> {
         let conn = get_connection()?;
 
-        let sql = "SELECT guild_id, sanitizer_mode, delete_permission, hide_original_embed FROM Sanitizer WHERE guild_id = ?";
+        let sql = "SELECT guild_id, sanitizer_mode, delete_permission, hide_original_embed
+                           FROM Sanitizer WHERE guild_id = ?";
 
         let mut rows = conn
             .prepare(sql)
@@ -36,7 +37,7 @@ impl ServerConfig {
         let conn = get_connection()?;
 
         let sql = r#"
-            INSERT OR REPLACE INTO Sanitizer 
+            INSERT OR REPLACE INTO Sanitizer
             (guild_id, sanitizer_mode, delete_permission, hide_original_embed)
             VALUES (?, ?, ?, ?)
         "#;
@@ -45,8 +46,8 @@ impl ServerConfig {
             sql,
             params![
                 self.guild_id as i64,
-                self.sanitizer_mode as u8,
-                self.delete_permission as u8,
+                self.sanitizer_mode as u32,
+                self.delete_permission as u32,
                 self.hide_original_embed
             ],
         )

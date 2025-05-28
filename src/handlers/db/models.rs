@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[repr(u32)]
+#[repr(i32)]
 pub enum SanitizerMode {
     Automatic = 0,
     ManualEmote = 1,
@@ -15,8 +15,8 @@ impl Default for SanitizerMode {
     }
 }
 
-impl From<u32> for SanitizerMode {
-    fn from(value: u32) -> Self {
+impl From<i32> for SanitizerMode {
+    fn from(value: i32) -> Self {
         match value {
             0 => SanitizerMode::Automatic,
             1 => SanitizerMode::ManualEmote,
@@ -28,7 +28,7 @@ impl From<u32> for SanitizerMode {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[repr(u32)]
+#[repr(i32)]
 pub enum DeletePermission {
     AuthorAndMods = 0,
     Everyone = 1,
@@ -41,8 +41,8 @@ impl Default for DeletePermission {
     }
 }
 
-impl From<u32> for DeletePermission {
-    fn from(value: u32) -> Self {
+impl From<i32> for DeletePermission {
+    fn from(value: i32) -> Self {
         match value {
             0 => DeletePermission::AuthorAndMods,
             1 => DeletePermission::Everyone,
