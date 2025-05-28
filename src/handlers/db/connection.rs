@@ -25,9 +25,32 @@ async fn init_database() -> Result<Database> {
         .await
         .context("Failed to build database connection")?;
 
-    let _ = db.connect().context("Failed to connect to the database")?;
+    let conn = db.connect().context("Failed to connect to the database")?;
+    create_tables(&conn)
+        .await
+        .context("Failed to create database tables")?;
 
     Ok(db)
+}
+
+async fn create_tables(conn: &Connection) -> Result<()> {
+    debug!("Creating database tables if they don't exist");
+
+    let create_sanitizer_table = r#"
+        CREATE TABLE IF NOT EXISTS Sanitizer (
+            guild_id INTEGER PRIMARY KEY,
+            sanitizer_mode INTEGER NOT NULL DEFAULT 0,
+            delete_permission INTEGER NOT NULL DEFAULT 0,
+            hide_original_embed BOOLEAN NOT NULL DEFAULT false
+        )
+    "#;
+
+    conn.execute(create_sanitizer_table, ())
+        .await
+        .context("Failed to create Sanitizer table")?;
+
+    debug!("Database tables created successfully");
+    Ok(())
 }
 
 pub fn get_connection() -> Result<Connection> {

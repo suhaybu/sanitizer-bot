@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use libsql::params;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use super::{connection::get_connection, models::ServerConfig};
 
@@ -11,25 +11,34 @@ impl ServerConfig {
         let sql = "SELECT guild_id, sanitizer_mode, delete_permission, hide_original_embed
                            FROM Sanitizer WHERE guild_id = ?";
 
-        let mut rows = conn
-            .prepare(sql)
-            .await
-            .context("Failed to prepare SELECT statement")?
-            .query(params![guild_id as i64])
-            .await
-            .context("Failed to execute SELECT query")?;
+        match conn.prepare(sql).await {
+            Ok(mut stmt) => {
+                let mut rows = stmt
+                    .query(params![guild_id as i64])
+                    .await
+                    .context("Failed to execute SELECT query")?;
 
-        if let Some(row) = rows.next().await.context("Failed to fetch row")? {
-            debug!("Found existing config for guild {}", guild_id);
-            Ok(ServerConfig {
-                guild_id,
-                sanitizer_mode: row.get::<i32>(1)?.into(),
-                delete_permission: row.get::<i32>(2)?.into(),
-                hide_original_embed: row.get::<bool>(3)?,
-            })
-        } else {
-            debug!("No config found for guild {}, returning default", guild_id);
-            Ok(ServerConfig::default(guild_id))
+                if let Some(row) = rows.next().await.context("Failed to fetch row")? {
+                    debug!("Found existing config for guild {}", guild_id);
+                    Ok(ServerConfig {
+                        guild_id,
+                        sanitizer_mode: row.get::<i32>(1)?.into(),
+                        delete_permission: row.get::<i32>(2)?.into(),
+                        hide_original_embed: row.get::<bool>(3)?,
+                    })
+                } else {
+                    debug!("No config found for guild {}, returning default", guild_id);
+                    Ok(ServerConfig::default(guild_id))
+                }
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to prepare SELECT statement for guild {}: {}",
+                    guild_id, e
+                );
+                warn!("Returning default config for guild {}", guild_id);
+                Ok(ServerConfig::default(guild_id))
+            }
         }
     }
 
