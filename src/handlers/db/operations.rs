@@ -23,8 +23,8 @@ impl ServerConfig {
             debug!("Found existing config for guild {}", guild_id);
             Ok(ServerConfig {
                 guild_id,
-                sanitizer_mode: row.get::<u32>(1)?.into(),
-                delete_permission: row.get::<u32>(2)?.into(),
+                sanitizer_mode: row.get::<i32>(1)?.into(),
+                delete_permission: row.get::<i32>(2)?.into(),
                 hide_original_embed: row.get::<bool>(3)?,
             })
         } else {
@@ -46,8 +46,8 @@ impl ServerConfig {
             sql,
             params![
                 self.guild_id as i64,
-                self.sanitizer_mode as u32,
-                self.delete_permission as u32,
+                self.sanitizer_mode as i32,
+                self.delete_permission as i32,
                 self.hide_original_embed
             ],
         )
