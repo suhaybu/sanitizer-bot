@@ -5,5 +5,4 @@
 Cargo.lock
 
 local.db
-local.db-shm
-local.db-wal
+local.db-*
