@@ -2,6 +2,7 @@
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use std::{sync::LazyLock, time::Duration};
+use tracing::{debug, error};
 
 const API_URL: &str = "https://api.quickvids.app/v2/quickvids/shorturl";
 static API_TOKEN: LazyLock<String> =
@@ -23,12 +24,12 @@ struct APIRequest<'a> {
     detailed: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Author {
     username: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct VideoDetails {
     author: Author,
 }
@@ -52,23 +53,78 @@ impl QuickVidsAPI {
         Self {}
     }
 
+    // async fn make_request(&self, url: &str, detailed: bool) -> Option<APIResponse> {
+    //     // This function makes the API request with crazy 0 variables
+    //     CLIENT
+    //         .post(API_URL)
+    //         .bearer_auth(&*API_TOKEN)
+    //         .json(&APIRequest {
+    //             input_text: url,
+    //             detailed,
+    //         })
+    //         .send() // Sends the HTTP request, gets a Result<Response, Error>
+    //         .await
+    //         .ok()? // Unwraps Result -> Option
+    //         .error_for_status() // Checks if there is an error, gets a Result
+    //         .ok()? // Unwraps Result -> Option
+    //         .json() // Deserializes the JSON response from API
+    //         .await
+    //         .ok() // Converts the Result into Option
+    // }
+
     async fn make_request(&self, url: &str, detailed: bool) -> Option<APIResponse> {
-        // This function makes the API request with crazy 0 variables
-        CLIENT
+        debug!(
+            "Making API request to {} with detailed={}",
+            API_URL, detailed
+        );
+        debug!("Request payload: input_text={}, detailed={}", url, detailed);
+
+        // Send the request
+        let response = match CLIENT
             .post(API_URL)
             .bearer_auth(&*API_TOKEN)
             .json(&APIRequest {
                 input_text: url,
                 detailed,
             })
-            .send() // Sends the HTTP request, gets a Result<Response, Error>
+            .send()
             .await
-            .ok()? // Unwraps Result -> Option
-            .error_for_status() // Checks if there is an error, gets a Result
-            .ok()? // Unwraps Result -> Option
-            .json() // Deserializes the JSON response from API
-            .await
-            .ok() // Converts the Result into Option
+        {
+            Ok(resp) => {
+                debug!("HTTP request successful, status: {}", resp.status());
+                resp
+            }
+            Err(e) => {
+                error!("Failed to send HTTP request: {}", e);
+                return None;
+            }
+        };
+
+        // Check for HTTP errors
+        let response = match response.error_for_status() {
+            Ok(resp) => {
+                debug!("HTTP status check passed");
+                resp
+            }
+            Err(e) => {
+                error!("HTTP error status: {}", e);
+                return None;
+            }
+        };
+
+        // Parse JSON response
+        match response.json::<APIResponse>().await {
+            Ok(api_response) => {
+                debug!("Successfully parsed JSON response");
+                debug!("Response URL: {}", api_response.quickvids_url);
+                debug!("Response details: {:?}", api_response.details);
+                Some(api_response)
+            }
+            Err(e) => {
+                error!("Failed to parse JSON response: {}", e);
+                None
+            }
+        }
     }
 
     pub async fn get_response(&self, url: &str) -> Option<FormattedResponse> {
