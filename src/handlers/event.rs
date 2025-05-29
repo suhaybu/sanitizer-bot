@@ -66,14 +66,22 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
         SanitizerMode::Automatic => true,
         SanitizerMode::ManualMention => message.mentions_me(ctx).await?,
         SanitizerMode::ManualEmote => {
-            let _ = message.react(ctx, SANITIZER_EMOJI.clone()).await?;
+            if message.content.trim().to_lowercase().contains("http")
+                && crate::handlers::user_input::ParsedURL::new(message.content.trim()).is_some()
+            {
+                let _ = message.react(ctx, SANITIZER_EMOJI.clone()).await?;
+            }
             false
         }
         SanitizerMode::ManualBoth => {
             if message.mentions_me(ctx).await? {
                 true
             } else {
-                let _ = message.react(ctx, SANITIZER_EMOJI.clone()).await;
+                if message.content.trim().to_lowercase().contains("http")
+                    && crate::handlers::user_input::ParsedURL::new(message.content.trim()).is_some()
+                {
+                    let _ = message.react(ctx, SANITIZER_EMOJI.clone()).await;
+                }
                 false
             }
         }

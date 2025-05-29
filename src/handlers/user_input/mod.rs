@@ -3,6 +3,7 @@ mod parse_url;
 mod sanitize_input;
 
 pub use self::sanitize_input::sanitize_input;
+pub use parse_url::ParsedURL;
 
 // Checks if context is Guild Install
 pub fn is_guild_install(ctx: &crate::Context<'_>) -> bool {
