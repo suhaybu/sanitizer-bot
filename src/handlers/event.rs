@@ -5,7 +5,7 @@ use tracing::{debug, error, info};
 use crate::Data;
 use crate::handlers::{handle_response_event, sanitize_input};
 
-use super::db::models::{DeletePermission, SanitizerMode, ServerConfig};
+use super::db::{DeletePermission, SanitizerMode, ServerConfig};
 
 pub async fn get_event_handler(
     framework: poise::FrameworkContext<'_, Data, Error>,
@@ -232,33 +232,49 @@ async fn handle_component_interaction(
         }
     };
 
-    // Save the updated config
-    if let Err(e) = config.save().await {
-        error!("Failed to save server config: {:?}", e);
-        interaction
-            .create_response(
-                ctx,
-                serenity::CreateInteractionResponse::Message(
-                    serenity::CreateInteractionResponseMessage::new()
-                        .content("❌ Failed to save configuration. Please try again.")
-                        .ephemeral(true),
-                ),
-            )
-            .await?;
-        return Ok(());
-    }
+    match config.save().await {
+        Ok(()) => {
+            // Send response
+            interaction
+                .create_response(
+                    ctx,
+                    serenity::CreateInteractionResponse::Message(
+                        serenity::CreateInteractionResponseMessage::new()
+                            .content(response_message)
+                            .ephemeral(true),
+                    ),
+                )
+                .await?;
 
-    // Send response
-    interaction
-        .create_response(
-            ctx,
-            serenity::CreateInteractionResponse::Message(
-                serenity::CreateInteractionResponseMessage::new()
-                    .content(response_message)
-                    .ephemeral(true),
-            ),
-        )
-        .await?;
+            if let Err(e) = super::db::sync_database().await {
+                error!("Failed to sync database after config save: {:?}", e);
+            } else {
+                debug!(
+                    "Database synced successfully after config change for guild {}",
+                    guild_id
+                );
+            }
+        }
+        Err(e) => {
+            error!("Failed to save server config: {:?}", e);
+
+            // Save the updated config
+            if let Err(e) = config.save().await {
+                error!("Failed to save server config: {:?}", e);
+                interaction
+                    .create_response(
+                        ctx,
+                        serenity::CreateInteractionResponse::Message(
+                            serenity::CreateInteractionResponseMessage::new()
+                                .content("❌ Failed to save configuration. Please try again.")
+                                .ephemeral(true),
+                        ),
+                    )
+                    .await?;
+            }
+            return Ok(());
+        }
+    }
 
     Ok(())
 }
