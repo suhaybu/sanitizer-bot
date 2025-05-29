@@ -167,7 +167,7 @@ fn check_bot_response(bot_message: &serenity::Message) -> bool {
         }
         _ => {
             debug!("Unknown platform - defaulting to valid");
-            true
+            return true;
         }
     }
 }
