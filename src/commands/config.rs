@@ -3,7 +3,7 @@ use poise::serenity_prelude as serenity;
 use tracing::debug;
 
 use crate::Context;
-use crate::handlers::db::models::{DeletePermission, SanitizerMode, ServerConfig};
+use crate::handlers::db::{DeletePermission, SanitizerMode, ServerConfig};
 
 /// Configure Sanitizer settings for this server 🛠️
 #[poise::command(

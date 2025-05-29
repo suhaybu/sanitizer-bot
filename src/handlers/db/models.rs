@@ -51,22 +51,3 @@ impl From<i32> for DeletePermission {
         }
     }
 }
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub struct ServerConfig {
-    pub guild_id: u64,
-    pub sanitizer_mode: SanitizerMode,
-    pub delete_permission: DeletePermission,
-    pub hide_original_embed: bool,
-}
-
-impl ServerConfig {
-    pub fn default(guild_id: u64) -> Self {
-        Self {
-            guild_id,
-            sanitizer_mode: SanitizerMode::Automatic,
-            delete_permission: DeletePermission::AuthorAndMods,
-            hide_original_embed: false,
-        }
-    }
-}

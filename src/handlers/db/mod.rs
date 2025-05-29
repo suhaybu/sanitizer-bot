@@ -1,6 +1,7 @@
-pub mod connection;
-pub mod models;
-pub mod operations;
+mod connection;
+mod models;
+mod operations;
 
 pub use connection::{get_connection, sync_database};
-pub use models::SanitizerMode;
+pub use models::{DeletePermission, SanitizerMode};
+pub use operations::ServerConfig;
