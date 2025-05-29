@@ -66,18 +66,16 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
         SanitizerMode::Automatic => true,
         SanitizerMode::ManualMention => message.mentions_me(ctx).await?,
         SanitizerMode::ManualEmote => {
-            // TODO
-            message.react(ctx, SANITIZER_EMOJI.clone()).await?;
+            let _ = message.react(ctx, SANITIZER_EMOJI.clone()).await?;
             false
         }
         SanitizerMode::ManualBoth => {
             if message.mentions_me(ctx).await? {
-                true;
+                true
+            } else {
+                let _ = message.react(ctx, SANITIZER_EMOJI.clone()).await;
+                false
             }
-
-            // TODO
-            message.react(ctx, SANITIZER_EMOJI.clone()).await?;
-            false
         }
     };
 
