@@ -1,12 +1,12 @@
-# Sanitizer Bot (Rust)
-
-This project is a Rust implementation of [Sanitizer Bot (Python)](https://github.com/Suhaybu/sanitizer-bot-py)
+# Sanitizer Bot
 
 ## Introduction
 
 Sanitizer is a simple bot that uses regex to identify links for social platforms and replaces them with discord embed friendly links that allows you to view the content of the link without ever having to leave the discord app. Making peoples lives easier one step at a time! :)
 
 The bot is developed using the `serenity.rs` library. Click [here](https://github.com/serenity-rs/serenity) to view their GitHub repo.
+
+This project is a reimplementation of [Sanitizer Bot (Python)](https://github.com/Suhaybu/sanitizer-bot-py) in the Rust programming language.
 
 ## Features
 
