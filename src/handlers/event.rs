@@ -1,5 +1,5 @@
 use anyhow::Error;
-use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::{self as serenity, EmojiId};
 use tracing::{debug, error, info};
 
 use crate::Data;
@@ -36,66 +36,104 @@ pub async fn get_event_handler(
 }
 
 async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Result<(), Error> {
-    debug!("Message received from user: {}", message.author.name);
-    debug!("Channel type: {:?}", message.channel_id);
-
     // Exits if message author is from bot itself
     if message.author.id == ctx.cache.current_user().id {
         debug!("Skipping message from self");
         return Ok(());
     }
 
-    let server_config = if let Some(guild_id) = message.guild_id {
-        Some(ServerConfig::get_or_default(guild_id.get()).await?)
-    } else {
-        None
+    debug!("Message received from user: {}", message.author.name);
+    debug!("Channel id: {:?}", message.channel_id);
+
+    let server_config = match message.guild_id {
+        Some(guild_id) => ServerConfig::get_or_default(guild_id.get()).await?,
+        None => ServerConfig::default(0),
     };
 
-    if let Some(config) = &server_config {
-        match config.sanitizer_mode {
-            crate::handlers::db::SanitizerMode::ManualMention => {}
-            _ => {}
+    let should_process = match server_config.sanitizer_mode {
+        SanitizerMode::Automatic => true,
+        SanitizerMode::ManualMention => message.mentions_me(ctx).await?,
+        SanitizerMode::ManualEmote => {
+            // TODO
+            message
+                .react(
+                    ctx,
+                    serenity::ReactionType::Custom {
+                        animated: false,
+                        id: EmojiId::new(1206376642042138724),
+                        name: Some("Sanitized".to_string()),
+                    },
+                )
+                .await?;
+            false
         }
-    }
+        SanitizerMode::ManualBoth => {
+            if message.mentions_me(ctx).await? {
+                true;
+            }
 
-    let input = message.content.trim();
-    if !input.to_lowercase().contains("http") {
-        debug!("No URL found in message");
+            // TODO
+            message
+                .react(
+                    ctx,
+                    serenity::ReactionType::Custom {
+                        animated: false,
+                        id: EmojiId::new(1206376642042138724),
+                        name: Some("Sanitized".to_string()),
+                    },
+                )
+                .await?;
+            false
+        }
+    };
+
+    // Exit early
+    if !should_process {
         return Ok(());
     }
+
+    let input = match server_config.sanitizer_mode {
+        SanitizerMode::ManualMention | SanitizerMode::ManualBoth => {
+            if message.content.trim().to_lowercase().contains("http") {
+                message.content.trim() // Return message with mention + url
+            } else if let Some(referenced_message) = &message.referenced_message {
+                if referenced_message
+                    .content
+                    .trim()
+                    .to_lowercase()
+                    .contains("http")
+                {
+                    referenced_message.content.trim()
+                } else {
+                    return Ok(()); // Referenced message does not contain a url, so exit
+                }
+            } else {
+                return Ok(()); // No referenced message exists, so exit
+            }
+        }
+
+        _ => message.content.trim(),
+    };
 
     debug!("URL found, processing input: {}", input);
 
     let response = match sanitize_input(input).await {
-        None => return Ok(()), // Exit early if no match
         Some(response) => response,
+        None => return Ok(()), // Exit early if no match
     };
 
     let bot_message = message.reply(ctx, response).await?;
 
-    if let Some(config) = server_config {
-        if config.hide_original_embed && message.guild_id.is_some() {
-            message
-                .channel_id
-                .edit_message(
-                    ctx,
-                    message.id,
-                    serenity::EditMessage::new().suppress_embeds(true),
-                )
-                .await?;
-        }
+    if server_config.hide_original_embed & message.guild_id.is_some() {
+        message
+            .channel_id
+            .edit_message(
+                ctx,
+                message.id,
+                serenity::EditMessage::new().suppress_embeds(true),
+            )
+            .await?;
     }
-
-    // message
-    //     .react(
-    //         ctx,
-    //         serenity::ReactionType::Custom {
-    //             animated: false,
-    //             id: EmojiId::new(1206376642042138724),
-    //             name: Some("Sanitized".to_string()),
-    //         },
-    //     )
-    //     .await?;
 
     handle_response_event(ctx, message, &bot_message).await?;
 
