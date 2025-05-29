@@ -1,8 +1,8 @@
+use std::env::var;
+
 use anyhow::{Context as _, Error, Result};
 use poise::FrameworkOptions;
 use poise::serenity_prelude as serenity;
-use std::env::var;
-use std::fmt::Pointer;
 use tracing::error;
 
 use config::data::Data;
