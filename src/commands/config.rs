@@ -35,8 +35,8 @@ pub async fn config(ctx: Context<'_>) -> Result<()> {
         .title("Sanitizer Settings 🛠️")
         .description(
             "**Sanitizer mode**\nSwitch between **Automatic** and **Manual** modes.\n\n\
-             **Delete button**\nChange who is allowed to use the delete button.\n\n\
-             **Hide original embed**\nToggle whether to hide the original message's embed.",
+             **Delete Permission (Coming soon)**\nChange who is allowed to use the delete button.\n\n\
+             **Keep or Hide original embed**\nToggle whether the original message's embed \n (media preview) should be hidden or kept.",
         )
         .color(0x12F2E4); // 1242180 in hex
 
@@ -45,22 +45,22 @@ pub async fn config(ctx: Context<'_>) -> Result<()> {
         "sanitizer_mode",
         serenity::CreateSelectMenuKind::String {
             options: vec![
-                serenity::CreateSelectMenuOption::new("Automatic", "automatic")
+                serenity::CreateSelectMenuOption::new("Mode: Automatic", "automatic")
                     .description("Bot automatically fixes all compatible links (Default)")
                     .emoji(serenity::ReactionType::Unicode("🤖".to_string()))
                     .default_selection(server_config.sanitizer_mode == SanitizerMode::Automatic),
-                serenity::CreateSelectMenuOption::new("Manual (Emote)", "manual_emote")
+                serenity::CreateSelectMenuOption::new("Mode: Manual (Emote)", "manual_emote")
                     .description("Fix links by reacting with 🫧")
                     .emoji(serenity::ReactionType::Unicode("🫧".to_string()))
                     .default_selection(server_config.sanitizer_mode == SanitizerMode::ManualEmote),
-                serenity::CreateSelectMenuOption::new("Manual (Mention)", "manual_mention")
+                serenity::CreateSelectMenuOption::new("Mode: Manual (Mention)", "manual_mention")
                     .description("Fix links by mentioning @Sanitizer")
                     .emoji(serenity::ReactionType::Unicode("💬".to_string()))
                     .default_selection(
                         server_config.sanitizer_mode == SanitizerMode::ManualMention,
                     ),
                 serenity::CreateSelectMenuOption::new(
-                    "Manual (Both: Emote + Mention)",
+                    "Mode: Manual (Both: Emote + Mention)",
                     "manual_both",
                 )
                 .description("Fix links using either emote or mention")
@@ -76,19 +76,22 @@ pub async fn config(ctx: Context<'_>) -> Result<()> {
         "delete_permission",
         serenity::CreateSelectMenuKind::String {
             options: vec![
-                serenity::CreateSelectMenuOption::new("Default", "author_and_mods")
-                    .description("Author and moderators only (Default)")
-                    .emoji(serenity::ReactionType::Unicode("👤".to_string()))
-                    .default_selection(
-                        server_config.delete_permission == DeletePermission::AuthorAndMods,
-                    ),
-                serenity::CreateSelectMenuOption::new("Everyone", "everyone")
+                serenity::CreateSelectMenuOption::new(
+                    "Delete Permission: Author and Mods",
+                    "author_and_mods",
+                )
+                .description("Author and moderators only (Default)")
+                .emoji(serenity::ReactionType::Unicode("👤".to_string()))
+                .default_selection(
+                    server_config.delete_permission == DeletePermission::AuthorAndMods,
+                ),
+                serenity::CreateSelectMenuOption::new("Delete Permission: Everyone", "everyone")
                     .description("Allow all users to delete")
                     .emoji(serenity::ReactionType::Unicode("🌐".to_string()))
                     .default_selection(
                         server_config.delete_permission == DeletePermission::Everyone,
                     ),
-                serenity::CreateSelectMenuOption::new("Disabled", "disabled")
+                serenity::CreateSelectMenuOption::new("Delete Permission: Disabled", "disabled")
                     .description("Disable delete button feature")
                     .emoji(serenity::ReactionType::Unicode("🚫".to_string()))
                     .default_selection(
@@ -97,18 +100,19 @@ pub async fn config(ctx: Context<'_>) -> Result<()> {
             ],
         },
     )
-    .placeholder("Select Delete Button Permission");
+    .placeholder("Delete Button - Coming Soon!")
+    .disabled(true);
 
     // Create hide embed select menu
     let hide_embed_menu = serenity::CreateSelectMenu::new(
         "hide_original_embed",
         serenity::CreateSelectMenuKind::String {
             options: vec![
-                serenity::CreateSelectMenuOption::new("On", "hide")
+                serenity::CreateSelectMenuOption::new("Hide Original Embeds", "hide")
                     .description("Hide original message's embed (Default)")
                     .emoji(serenity::ReactionType::Unicode("✅".to_string()))
                     .default_selection(server_config.hide_original_embed),
-                serenity::CreateSelectMenuOption::new("Off", "show")
+                serenity::CreateSelectMenuOption::new("Keep Original Embeds", "show")
                     .description("Keep original message's embed visible")
                     .emoji(serenity::ReactionType::Unicode("❌".to_string()))
                     .default_selection(!server_config.hide_original_embed),
