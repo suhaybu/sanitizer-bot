@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use anyhow::Error;
 use poise::serenity_prelude::{self as serenity, EmojiId};
 use tracing::{debug, error, info};
@@ -6,6 +8,13 @@ use crate::Data;
 use crate::handlers::{handle_response_event, sanitize_input};
 
 use super::db::{DeletePermission, SanitizerMode, ServerConfig};
+
+static SANITIZER_EMOJI: LazyLock<serenity::ReactionType> =
+    LazyLock::new(|| serenity::ReactionType::Custom {
+        animated: false,
+        id: EmojiId::new(1206376642042138724),
+        name: Some("Sanitized".to_string()),
+    });
 
 pub async fn get_event_handler(
     framework: poise::FrameworkContext<'_, Data, Error>,
@@ -21,6 +30,9 @@ pub async fn get_event_handler(
         serenity::FullEvent::Message { new_message } => {
             // TODO: Add some kind of verification here to check SERVER_ID pref
             on_message(&ctx, new_message).await?;
+        }
+        serenity::FullEvent::ReactionAdd { add_reaction } => {
+            on_reaction_add(&ctx, add_reaction).await?;
         }
         serenity::FullEvent::GuildCreate { guild, .. } => {
             let _config = ServerConfig::get_or_default(guild.id.get()).await?;
@@ -55,16 +67,7 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
         SanitizerMode::ManualMention => message.mentions_me(ctx).await?,
         SanitizerMode::ManualEmote => {
             // TODO
-            message
-                .react(
-                    ctx,
-                    serenity::ReactionType::Custom {
-                        animated: false,
-                        id: EmojiId::new(1206376642042138724),
-                        name: Some("Sanitized".to_string()),
-                    },
-                )
-                .await?;
+            message.react(ctx, SANITIZER_EMOJI.clone()).await?;
             false
         }
         SanitizerMode::ManualBoth => {
@@ -73,16 +76,7 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
             }
 
             // TODO
-            message
-                .react(
-                    ctx,
-                    serenity::ReactionType::Custom {
-                        animated: false,
-                        id: EmojiId::new(1206376642042138724),
-                        name: Some("Sanitized".to_string()),
-                    },
-                )
-                .await?;
+            message.react(ctx, SANITIZER_EMOJI.clone()).await?;
             false
         }
     };
@@ -92,6 +86,71 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
         return Ok(());
     }
 
+    process_message(ctx, &message, &server_config).await
+}
+
+async fn on_reaction_add(
+    ctx: &serenity::Context,
+    reaction: &serenity::Reaction,
+) -> Result<(), Error> {
+    let bot_user_id = ctx.cache.current_user().id;
+
+    // Skip if the reaction is from the bot
+    if let Some(user_id) = reaction.user_id {
+        if user_id == bot_user_id {
+            debug!("Skipping reaction from self");
+            return Ok(());
+        }
+    }
+    // Skip if message is from the bot
+    let message = match reaction.message(ctx).await {
+        Ok(message) => message,
+        Err(e) => {
+            error!("Failed to get message from reaction: {}", e);
+            return Ok(());
+        }
+    };
+
+    if message.author.id == bot_user_id {
+        debug!("Skipping, reacted message is by self");
+        return Ok(());
+    }
+
+    let is_correct_emoji = reaction.emoji == *SANITIZER_EMOJI;
+
+    if !is_correct_emoji {
+        debug!("Reaction is not the sanitizer emoji, skipping");
+        return Ok(());
+    }
+
+    debug!("Sanitizer emoji detected");
+
+    let server_config = match reaction.guild_id {
+        Some(guild_id) => ServerConfig::get_or_default(guild_id.get()).await?,
+        None => {
+            // I don't think this case ever happens, but just to be safe
+            debug!("Reaction in DM, skipping");
+            return Ok(());
+        }
+    };
+
+    match server_config.sanitizer_mode {
+        SanitizerMode::ManualEmote | SanitizerMode::ManualBoth => {
+            debug!("Emote mode enabled, processing message");
+            process_message(ctx, &message, &server_config).await
+        }
+        _ => {
+            debug!("Manual emote not enabled, exiting");
+            return Ok(());
+        }
+    }
+}
+
+async fn process_message(
+    ctx: &serenity::Context,
+    message: &serenity::Message,
+    server_config: &ServerConfig,
+) -> Result<(), Error> {
     let input = match server_config.sanitizer_mode {
         SanitizerMode::ManualMention | SanitizerMode::ManualBoth => {
             if message.content.trim().to_lowercase().contains("http") {
