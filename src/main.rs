@@ -2,6 +2,7 @@ use anyhow::{Context as _, Error, Result};
 use poise::FrameworkOptions;
 use poise::serenity_prelude as serenity;
 use std::env::var;
+use std::fmt::Pointer;
 use tracing::error;
 
 use config::data::Data;
@@ -39,6 +40,10 @@ async fn run() -> Result<()> {
             })
         })
         .options(FrameworkOptions {
+            prefix_options: poise::PrefixFrameworkOptions {
+                mention_as_prefix: false,
+                ..Default::default()
+            },
             event_handler: |framework, event| {
                 Box::pin(handlers::get_event_handler(framework, event))
             },
