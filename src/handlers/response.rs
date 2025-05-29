@@ -1,3 +1,4 @@
+use poise::serenity_prelude::CreateAllowedMentions;
 use poise::serenity_prelude::{
     self as serenity, CreateEmbed, CreateMessage, EditInteractionResponse, EditMessage,
 };
@@ -13,6 +14,7 @@ pub async fn handle_response_event(
     ctx: &serenity::Context,
     user_message: &serenity::Message,
     bot_message: &serenity::Message,
+    mut supress_embed: bool,
 ) -> Result<()> {
     // Wait for embeds to appear (up to 10 seconds)
     let valid_response = wait_for_embed(&ctx, bot_message.id, bot_message.channel_id)
@@ -20,7 +22,11 @@ pub async fn handle_response_event(
         .map(|msg| check_bot_response(&msg))
         .unwrap_or(false);
 
-    match (valid_response, user_message.guild_id.is_some()) {
+    if user_message.guild_id.is_none() {
+        supress_embed = false;
+    }
+
+    match (valid_response, supress_embed) {
         (true, true) => {
             debug!("Valid response in guild, suppressing embeds");
             user_message
@@ -33,7 +39,7 @@ pub async fn handle_response_event(
                 .await?;
         }
         (true, false) => {
-            debug!("Valid response in DM, skipping embed suppression");
+            debug!("Valid response, skipping embed suppression due to config or DM");
         }
         (false, _) => {
             bot_message.delete(ctx).await?;
@@ -49,7 +55,8 @@ pub async fn handle_response_event(
                     ctx,
                     CreateMessage::new()
                         .reference_message(user_message)
-                        .add_embed(error_embed), // .allowed_mentions(CreateAllowedMentions::new()),
+                        .add_embed(error_embed)
+                        .allowed_mentions(CreateAllowedMentions::new()), // .allowed_mentions(CreateAllowedMentions::new()),
                 )
                 .await?;
 

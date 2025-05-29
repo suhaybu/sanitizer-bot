@@ -124,18 +124,13 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
 
     let bot_message = message.reply(ctx, response).await?;
 
-    if server_config.hide_original_embed & message.guild_id.is_some() {
-        message
-            .channel_id
-            .edit_message(
-                ctx,
-                message.id,
-                serenity::EditMessage::new().suppress_embeds(true),
-            )
-            .await?;
-    }
-
-    handle_response_event(ctx, message, &bot_message).await?;
+    handle_response_event(
+        ctx,
+        message,
+        &bot_message,
+        server_config.hide_original_embed,
+    )
+    .await?;
 
     Ok(())
 }
