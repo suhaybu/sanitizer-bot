@@ -2,7 +2,5 @@
 .env
 .DS_Store
 
-Cargo.lock
-
 local.db
 local.db-*
