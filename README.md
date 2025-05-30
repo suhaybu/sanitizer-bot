@@ -18,8 +18,25 @@ This project is a reimplementation of [Sanitizer Bot (Python)](https://github.co
 -   **Uses QuickVids API:** Uses QuickVids API to convert TikTok links into embeddable content in discord.
 
 
-## Build
-```cargo run --release```
+## Setup
+
+1. Create a `.env` file in the project root or add the following environment variables:
+
+| Variable | Description | Where to get it |
+|----------|-------------|-----------------|
+| `DISCORD_TOKEN` | Discord bot token for authentication | [Discord Developer Portal](https://discord.com/developers/applications) |
+| `QUICKVIDS_TOKEN` | API token for TikTok and Instagram content processing | [QuickVids API](https://quickvids.win/dashboard/me) |
+| `TURSO_DATABASE_URL` | Database URL for storing server configurations | [Turso Dashboard](https://turso.tech/) |
+| `TURSO_AUTH_TOKEN` | Authentication token for Turso database access | [Turso Dashboard](https://turso.tech/) |
+
+2. Download the appropriate release with respect to your OS and run it!
+
+3. Optionally, if you wish to build it yourself instead:
+```fish
+git clone https://github.com/suhaybu/sanitizer-bot
+cd /sanitizer-bot
+cargo run --release
+```
 
 ## Usage
 
