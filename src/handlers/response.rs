@@ -16,15 +16,25 @@ pub async fn handle_response_event(
     bot_message: &serenity::Message,
     mut supress_embed: bool,
 ) -> Result<()> {
+    debug!("handle_response_event called:");
+    debug!("  user_message.id: {}", user_message.id);
+    debug!("  bot_message.id: {}", bot_message.id);
+    debug!("  supress_embed: {}", supress_embed);
+    debug!("  user_message.guild_id: {:?}", user_message.guild_id);
+
     // Wait for embeds to appear (up to 10 seconds)
     let valid_response = wait_for_embed(&ctx, bot_message.id, bot_message.channel_id)
         .await
         .map(|msg| check_bot_response(&msg))
         .unwrap_or(false);
 
+    debug!("  valid_response: {}", valid_response);
+
     if user_message.guild_id.is_none() {
         supress_embed = false;
     }
+
+    debug!("  Final supress_embed: {}", supress_embed);
 
     match (valid_response, supress_embed) {
         (true, true) => {
@@ -42,6 +52,7 @@ pub async fn handle_response_event(
             debug!("Valid response, skipping embed suppression due to config or DM");
         }
         (false, _) => {
+            debug!("Invalid response, deleting bot message and showing error");
             bot_message.delete(ctx).await?;
 
             let error_embed = CreateEmbed::new()

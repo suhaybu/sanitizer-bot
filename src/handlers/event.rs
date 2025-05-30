@@ -157,9 +157,22 @@ async fn process_message(
     message: &serenity::Message,
     server_config: &ServerConfig,
 ) -> Result<(), Error> {
+    debug!("process_message called:");
+    debug!("message.id: {}", message.id);
+    debug!("message.author: {}", message.author.name);
+    debug!(
+        "server_config.sanitizer_mode: {:?}",
+        server_config.sanitizer_mode
+    );
+    debug!(
+        "server_config.hide_original_embed: {}",
+        server_config.hide_original_embed
+    );
+
     let input = match server_config.sanitizer_mode {
         SanitizerMode::ManualMention | SanitizerMode::ManualBoth => {
             if message.content.trim().to_lowercase().contains("http") {
+                debug!("Using message content as input");
                 message.content.trim() // Return message with mention + url
             } else if let Some(referenced_message) = &message.referenced_message {
                 if referenced_message
@@ -168,27 +181,44 @@ async fn process_message(
                     .to_lowercase()
                     .contains("http")
                 {
+                    debug!("Using referenced message content as input");
                     referenced_message.content.trim()
                 } else {
+                    debug!("Referenced message does not contain URL, exiting");
                     return Ok(()); // Referenced message does not contain a url, so exit
                 }
             } else {
+                debug!("No referenced message exists, exiting");
                 return Ok(()); // No referenced message exists, so exit
             }
         }
 
-        _ => message.content.trim(),
+        _ => {
+            debug!("Using message content as input (automatic mode)");
+            message.content.trim()
+        }
     };
 
     debug!("URL found, processing input: {}", input);
 
     let response = match sanitize_input(input).await {
-        Some(response) => response,
-        None => return Ok(()), // Exit early if no match
+        Some(response) => {
+            debug!("sanitize_input returned: {}", response);
+            response
+        }
+        None => {
+            debug!("sanitize_input returned None, exiting");
+            return Ok(());
+        } // Exit early if no match
     };
 
     let bot_message = message.reply(ctx, response).await?;
+    debug!("Bot replied with message ID: {}", bot_message.id);
 
+    debug!(
+        "Calling handle_response_event with hide_original_embed: {}",
+        server_config.hide_original_embed
+    );
     handle_response_event(
         ctx,
         message,
