@@ -1,5 +1,5 @@
 [package]
-name = "sanitizer-bot-rs"
+name = "sanitizer-bot"
 version = "0.1.0"
 edition = "2024"
 
@@ -23,8 +23,9 @@ libsql = "0.9.7"
 
 [profile.release]
 strip = true      # Automatically strip symbols from the binary.
-lto = true
+lto = "fat"
 codegen-units = 1 # Optimize for size
+panic = "abort"
 opt-level = 3     # Maximum optimization
 
 # [build]
