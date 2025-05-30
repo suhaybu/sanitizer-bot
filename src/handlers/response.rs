@@ -14,7 +14,7 @@ pub async fn handle_response_event(
     ctx: &serenity::Context,
     user_message: &serenity::Message,
     bot_message: &serenity::Message,
-    mut supress_embed: bool,
+    supress_embed: bool,
 ) -> Result<()> {
     debug!("handle_response_event called:");
     debug!("  user_message.id: {}", user_message.id);
@@ -28,13 +28,9 @@ pub async fn handle_response_event(
         .map(|msg| check_bot_response(&msg))
         .unwrap_or(false);
 
-    debug!("  valid_response: {}", valid_response);
+    debug!("valid_response: {}", valid_response);
 
-    if user_message.guild_id.is_none() {
-        supress_embed = false;
-    }
-
-    debug!("  Final supress_embed: {}", supress_embed);
+    debug!("Final supress_embed: {}", supress_embed);
 
     match (valid_response, supress_embed) {
         (true, true) => {

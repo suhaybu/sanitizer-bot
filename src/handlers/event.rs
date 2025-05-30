@@ -92,7 +92,7 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
         return Ok(());
     }
 
-    process_message(ctx, &message, &server_config).await
+    process_message(ctx, &message, &server_config, message.guild_id.is_some()).await
 }
 
 async fn on_reaction_add(
@@ -143,7 +143,7 @@ async fn on_reaction_add(
     match server_config.sanitizer_mode {
         SanitizerMode::ManualEmote | SanitizerMode::ManualBoth => {
             debug!("Emote mode enabled, processing message");
-            process_message(ctx, &message, &server_config).await
+            process_message(ctx, &message, &server_config, reaction.guild_id.is_some()).await
         }
         _ => {
             debug!("Manual emote not enabled, exiting");
@@ -156,6 +156,7 @@ async fn process_message(
     ctx: &serenity::Context,
     message: &serenity::Message,
     server_config: &ServerConfig,
+    is_guild_context: bool,
 ) -> Result<(), Error> {
     debug!("process_message called:");
     debug!("message.id: {}", message.id);
@@ -169,11 +170,11 @@ async fn process_message(
         server_config.hide_original_embed
     );
 
-    let input = match server_config.sanitizer_mode {
+    let (input, message_to_suppress) = match server_config.sanitizer_mode {
         SanitizerMode::ManualMention | SanitizerMode::ManualBoth => {
             if message.content.trim().to_lowercase().contains("http") {
                 debug!("Using message content as input");
-                message.content.trim() // Return message with mention + url
+                (message.content.trim(), message) // Return message with mention + url
             } else if let Some(referenced_message) = &message.referenced_message {
                 if referenced_message
                     .content
@@ -182,7 +183,10 @@ async fn process_message(
                     .contains("http")
                 {
                     debug!("Using referenced message content as input");
-                    referenced_message.content.trim()
+                    (
+                        referenced_message.content.trim(),
+                        referenced_message.as_ref(),
+                    )
                 } else {
                     debug!("Referenced message does not contain URL, exiting");
                     return Ok(()); // Referenced message does not contain a url, so exit
@@ -195,7 +199,7 @@ async fn process_message(
 
         _ => {
             debug!("Using message content as input (automatic mode)");
-            message.content.trim()
+            (message.content.trim(), message)
         }
     };
 
@@ -215,15 +219,17 @@ async fn process_message(
     let bot_message = message.reply(ctx, response).await?;
     debug!("Bot replied with message ID: {}", bot_message.id);
 
+    let should_supress_embeds = server_config.hide_original_embed && is_guild_context;
+
     debug!(
         "Calling handle_response_event with hide_original_embed: {}",
         server_config.hide_original_embed
     );
     handle_response_event(
         ctx,
-        message,
+        message_to_suppress,
         &bot_message,
-        server_config.hide_original_embed,
+        should_supress_embeds,
     )
     .await?;
 
