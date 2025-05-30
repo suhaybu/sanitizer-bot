@@ -20,7 +20,7 @@ impl ServerConfig {
             guild_id,
             sanitizer_mode: SanitizerMode::Automatic,
             delete_permission: DeletePermission::AuthorAndMods,
-            hide_original_embed: false,
+            hide_original_embed: true,
         }
     }
 }
