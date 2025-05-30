@@ -7,7 +7,7 @@ edition = "2024"
 anyhow = "1.0"
 
 dotenvy = "0.15"
-regex = "1.10"
+regex = "1.11"
 reqwest = { version = "0.12", features = [
     "json",
     "rustls-tls",
@@ -15,11 +15,11 @@ reqwest = { version = "0.12", features = [
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-tokio = { version = "1.21", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.45", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 console-subscriber = "0.4"
-libsql = "0.9.7"
+libsql = "0.9"
 
 [profile.release]
 strip = true      # Automatically strip symbols from the binary.
