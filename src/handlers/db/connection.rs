@@ -37,11 +37,11 @@ async fn create_tables(conn: &Connection) -> Result<()> {
     debug!("Creating database tables if they don't exist");
 
     let create_sanitizer_table = r#"
-        CREATE TABLE IF NOT EXISTS Sanitizer (
+        CREATE TABLE IF NOT EXISTS server_configs (
             guild_id INTEGER PRIMARY KEY,
             sanitizer_mode INTEGER NOT NULL DEFAULT 0,
             delete_permission INTEGER NOT NULL DEFAULT 0,
-            hide_original_embed BOOLEAN NOT NULL DEFAULT false
+            hide_original_embed BOOLEAN NOT NULL DEFAULT true
         )
     "#;
 

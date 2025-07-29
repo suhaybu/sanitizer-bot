@@ -30,7 +30,7 @@ impl ServerConfig {
         let conn = get_connection()?;
 
         let sql = "SELECT guild_id, sanitizer_mode, delete_permission, hide_original_embed
-                           FROM Sanitizer WHERE guild_id = ?";
+                           FROM server_configs WHERE guild_id = ?";
 
         match conn.prepare(sql).await {
             Ok(mut stmt) => {
@@ -67,7 +67,7 @@ impl ServerConfig {
         let conn = get_connection()?;
 
         let sql = r#"
-            INSERT OR REPLACE INTO Sanitizer
+            INSERT OR REPLACE INTO server_configs
             (guild_id, sanitizer_mode, delete_permission, hide_original_embed)
             VALUES (?, ?, ?, ?)
         "#;
