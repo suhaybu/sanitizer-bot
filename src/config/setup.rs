@@ -1,6 +1,6 @@
 use anyhow::Result;
 use dotenvy::dotenv;
-use tracing::debug;
+use tracing::{debug, error};
 use tracing_subscriber::EnvFilter;
 
 use crate::handlers::db;
@@ -10,6 +10,15 @@ pub fn init() -> Result<()> {
     dotenv().expect("Critical Error: Failed to load .env file");
 
     let _conn = db::get_connection()?;
+
+    // Perform initial database sync
+    tokio::spawn(async {
+        if let Err(e) = db::sync_database().await {
+            error!("Failed initial database sync: {:?}", e);
+        } else {
+            debug!("Initial database sync completed successfully");
+        }
+    });
 
     debug!("Initialization complete");
     Ok(())

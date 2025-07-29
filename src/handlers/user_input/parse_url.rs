@@ -84,17 +84,17 @@ impl<'a> ParsedURL<'a> {
 
         match match_index {
             0 => Some(ParsedURL::Tiktok {
-                url: Cow::Borrowed(captures.get(0).unwrap().as_str()),
+                url: captures.get(0)?.as_str().into(),
             }),
             1 => Some(ParsedURL::Instagram {
-                url: Cow::Borrowed(captures.get(0).unwrap().as_str()),
-                post_type: Cow::Borrowed(captures.name("type").unwrap().as_str()),
-                data: Cow::Borrowed(captures.name("data").unwrap().as_str()),
+                url: captures.get(0)?.as_str().into(),
+                post_type: captures.name("type")?.as_str().into(),
+                data: captures.name("data")?.as_str().into(),
             }),
             2 => Some(ParsedURL::Twitter {
-                url: Cow::Borrowed(captures.get(0).unwrap().as_str()),
-                username: Cow::Borrowed(captures.name("username").unwrap().as_str()),
-                data: Cow::Borrowed(captures.name("data").unwrap().as_str()),
+                url: captures.get(0)?.as_str().into(),
+                username: captures.name("username")?.as_str().into(),
+                data: captures.name("data")?.as_str().into(),
             }),
             _ => None,
         }

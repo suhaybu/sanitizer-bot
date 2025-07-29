@@ -4,7 +4,7 @@ use poise::serenity_prelude::{
 };
 use std::time::Duration;
 use tokio::time::sleep;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::Context;
 use crate::Result;
@@ -14,15 +14,15 @@ pub async fn handle_response_event(
     ctx: &serenity::Context,
     user_message: &serenity::Message,
     bot_message: &serenity::Message,
-    supress_embed: bool,
+    suppress_embed: bool,
 ) -> Result<()> {
     debug!("handle_response_event called:");
     debug!("  user_message.id: {}", user_message.id);
     debug!("  bot_message.id: {}", bot_message.id);
-    debug!("  supress_embed: {}", supress_embed);
+    debug!("  suppress_embed: {}", suppress_embed);
     debug!("  user_message.guild_id: {:?}", user_message.guild_id);
 
-    // Wait for embeds to appear (up to 10 seconds)
+    // Wait for embeds to appear (up to 8 seconds)
     let valid_response = wait_for_embed(&ctx, bot_message.id, bot_message.channel_id)
         .await
         .map(|msg| check_bot_response(&msg))
@@ -30,9 +30,9 @@ pub async fn handle_response_event(
 
     debug!("valid_response: {}", valid_response);
 
-    debug!("Final supress_embed: {}", supress_embed);
+    debug!("Final suppress_embed: {}", suppress_embed);
 
-    match (valid_response, supress_embed) {
+    match (valid_response, suppress_embed) {
         (true, true) => {
             debug!("Valid response in guild, suppressing embeds");
             user_message
@@ -68,7 +68,10 @@ pub async fn handle_response_event(
                 .await?;
 
             sleep(Duration::from_secs(10)).await;
-            error_message.delete(ctx).await?;
+            
+            if let Err(e) = error_message.delete(ctx).await {
+                warn!("Failed to delete temporary error message {}: {:?}", error_message.id, e);
+            }
         }
     }
 

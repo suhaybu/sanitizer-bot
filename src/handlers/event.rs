@@ -80,7 +80,7 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
                 if message.content.trim().to_lowercase().contains("http")
                     && crate::handlers::user_input::ParsedURL::new(message.content.trim()).is_some()
                 {
-                    let _ = message.react(ctx, SANITIZER_EMOJI.clone()).await;
+                    let _ = message.react(ctx, SANITIZER_EMOJI.clone()).await?;
                 }
                 false
             }
@@ -219,7 +219,7 @@ async fn process_message(
     let bot_message = message.reply(ctx, response).await?;
     debug!("Bot replied with message ID: {}", bot_message.id);
 
-    let should_supress_embeds = server_config.hide_original_embed && is_guild_context;
+    let should_suppress_embeds = server_config.hide_original_embed && is_guild_context;
 
     debug!(
         "Calling handle_response_event with hide_original_embed: {}",
@@ -229,7 +229,7 @@ async fn process_message(
         ctx,
         message_to_suppress,
         &bot_message,
-        should_supress_embeds,
+        should_suppress_embeds,
     )
     .await?;
 
@@ -392,20 +392,17 @@ async fn handle_component_interaction(
         Err(e) => {
             error!("Failed to save server config: {:?}", e);
 
-            // Save the updated config
-            if let Err(e) = config.save().await {
-                error!("Failed to save server config: {:?}", e);
-                interaction
-                    .create_response(
-                        ctx,
-                        serenity::CreateInteractionResponse::Message(
-                            serenity::CreateInteractionResponseMessage::new()
-                                .content("❌ Failed to save configuration. Please try again.")
-                                .ephemeral(true),
-                        ),
-                    )
-                    .await?;
-            }
+            interaction
+                .create_response(
+                    ctx,
+                    serenity::CreateInteractionResponse::Message(
+                        serenity::CreateInteractionResponseMessage::new()
+                            .content("❌ Failed to save configuration. Please try again.")
+                            .ephemeral(true),
+                    ),
+                )
+                .await?;
+
             return Ok(());
         }
     }
