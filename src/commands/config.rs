@@ -35,7 +35,7 @@ pub async fn config(ctx: Context<'_>) -> Result<()> {
         .title("Sanitizer Settings 🛠️")
         .description(
             "**Sanitizer mode**\nSwitch between **Automatic** and **Manual** modes.\n\n\
-             **Delete Permission (Coming soon)**\nChange who is allowed to use the delete button.\n\n\
+             **Delete Permission**\nChoose who can delete the bot's responses.\n\n\
              **Keep or Hide original embed**\nToggle whether the original message's embed \n (media preview) should be hidden or kept.",
         )
         .color(0x12F2E4); // 1242180 in hex
@@ -100,8 +100,7 @@ pub async fn config(ctx: Context<'_>) -> Result<()> {
             ],
         },
     )
-    .placeholder("Delete Button - Coming Soon!")
-    .disabled(true);
+    .placeholder("Who can delete bot responses?");
 
     // Create hide embed select menu
     let hide_embed_menu = serenity::CreateSelectMenu::new(
