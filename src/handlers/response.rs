@@ -193,16 +193,16 @@ async fn wait_for_embed(
         }
     }
 
-    let timeout = Duration::from_secs(8);
+    let timeout = Duration::from_secs(10);
     let start = std::time::Instant::now();
 
     while start.elapsed() < timeout {
+        sleep(Duration::from_millis(500)).await;
         if let Ok(msg) = channel_id.message(&ctx.http, message_id).await {
             if !msg.embeds.is_empty() {
                 return Some(msg);
             }
         }
-        sleep(Duration::from_millis(500)).await;
     }
 
     None
