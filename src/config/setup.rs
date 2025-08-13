@@ -1,7 +1,8 @@
 use anyhow::Result;
 use dotenvy::dotenv;
 use tracing::{debug, error};
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{fmt::time::OffsetTime, EnvFilter};
+use time::{macros::format_description, UtcOffset};
 
 use crate::handlers::db;
 
@@ -35,9 +36,15 @@ fn setup_logging() -> Result<()> {
     //         .expect("Invalid default filter")
     // });
 
+    // Format timestamps to second precision: 2025-08-13T16:48:48
+    let time_format = format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]");
+    // Use UTC without fractional seconds or timezone suffix
+    let timer = OffsetTime::new(UtcOffset::UTC, time_format);
+
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(false)
+        .with_timer(timer)
         .compact()
         .init();
 
