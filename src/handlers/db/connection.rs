@@ -34,7 +34,7 @@ async fn init_database() -> Result<Database> {
 }
 
 async fn create_tables(conn: &Connection) -> Result<()> {
-    debug!("Creating database tables if they don't exist");
+    debug!("Ensuring database schema exists");
 
     let create_sanitizer_table = r#"
         CREATE TABLE IF NOT EXISTS server_configs (
@@ -49,7 +49,7 @@ async fn create_tables(conn: &Connection) -> Result<()> {
         .await
         .context("Failed to create Sanitizer table")?;
 
-    debug!("Database tables created successfully");
+    debug!("Database schema ensured");
     Ok(())
 }
 
