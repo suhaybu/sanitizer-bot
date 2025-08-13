@@ -10,14 +10,34 @@ pub fn init() -> Result<()> {
     setup_logging()?;
     dotenv().expect("Critical Error: Failed to load .env file");
 
-    let _conn = db::get_connection()?;
+    // Warm up DB and drop the connection before syncing to avoid lock contention
+    {
+        let _ = db::get_connection()?;
+    }
 
-    // Perform initial database sync
+    // Perform initial database sync with small backoff to avoid startup races
     tokio::spawn(async {
-        if let Err(e) = db::sync_database().await {
-            error!("Failed initial database sync: {:?}", e);
-        } else {
-            debug!("Initial database sync completed successfully");
+        let mut delay = std::time::Duration::from_millis(250);
+        let mut last_err: Option<anyhow::Error> = None;
+        for attempt in 1..=3 {
+            match db::sync_database().await {
+                Ok(()) => {
+                    debug!("Initial database sync completed successfully (attempt {})", attempt);
+                    return;
+                }
+                Err(e) => {
+                    last_err = Some(e);
+                    debug!(
+                        "Initial database sync failed (attempt {}), retrying after {:?}",
+                        attempt, delay
+                    );
+                    tokio::time::sleep(delay).await;
+                    delay = delay * 2;
+                }
+            }
+        }
+        if let Some(e) = last_err {
+            error!("Failed initial database sync after retries: {:?}", e);
         }
     });
 
