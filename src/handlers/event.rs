@@ -39,7 +39,15 @@ pub async fn get_event_handler(
             on_reaction_add(&ctx, add_reaction).await?;
         }
         serenity::FullEvent::GuildCreate { guild, .. } => {
-            let _config = ServerConfig::get_or_default(guild.id.get()).await?;
+            match ServerConfig::get_or_default(guild.id.get()).await {
+                Ok(_) => {}
+                Err(e) => {
+                    error!(
+                        "Failed to get server config on guild_create for {}: {:?}",
+                        guild.id.get(), e
+                    );
+                }
+            }
         }
         serenity::FullEvent::InteractionCreate { interaction } => {
             if let serenity::Interaction::Component(component) = interaction {

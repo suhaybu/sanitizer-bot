@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
+use std::time::Duration;
 use libsql::{Builder, Connection, Database};
 use tracing::{debug, info};
 
@@ -54,7 +55,25 @@ async fn create_tables(conn: &Connection) -> Result<()> {
 }
 
 pub fn get_connection() -> Result<Connection> {
-    DB.connect().context("Failed to get database connection")
+    // Retry a few times to handle transient lock/availability during startup
+    let mut delay = Duration::from_millis(100);
+    for attempt in 1..=5 {
+        match DB.connect() {
+            Ok(conn) => return Ok(conn),
+            Err(e) => {
+                if attempt == 5 {
+                    return Err(e).context("Failed to get database connection");
+                }
+                tracing::debug!(
+                    "get_connection failed (attempt {}), retrying in {:?}",
+                    attempt, delay
+                );
+                std::thread::sleep(delay);
+                delay *= 2;
+            }
+        }
+    }
+    unreachable!("retry loop must return or error out")
 }
 
 pub async fn sync_database() -> Result<()> {
