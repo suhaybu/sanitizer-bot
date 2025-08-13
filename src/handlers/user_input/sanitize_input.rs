@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use tracing::debug;
 
 use super::{external_api::QuickVidsAPI, parse_url::ParsedURL};
@@ -15,11 +14,11 @@ pub async fn sanitize_input(user_input: &str) -> Option<String> {
     debug!("URL parsed as: {:?}", parsed_url);
     let api_client = QuickVidsAPI::new();
 
-    let format_post_type = |post_type: &str| -> Cow<'_, str> {
+    let format_post_type = |post_type: &str| -> &'static str {
         match post_type {
-            "p" => Cow::Borrowed("Post"),
-            "reel" => Cow::Borrowed("Reel"),
-            _ => Cow::Owned(post_type.to_string()),
+            "p" => "Post",
+            "reel" => "Reel",
+            _ => "",
         }
     };
 
@@ -38,12 +37,12 @@ pub async fn sanitize_input(user_input: &str) -> Option<String> {
             Some(api_response) => Some(
                 INSTAGRAM_API_TEMPLATE
                     .replace("{0}", &api_response.username.unwrap_or_default())
-                    .replace("{1}", &format_post_type(post_type.as_ref()))
+                    .replace("{1}", format_post_type(post_type.as_ref()))
                     .replace("{2}", &api_response.url),
             ),
             None => Some(
                 INSTAGRAM_TEMPLATE
-                    .replace("{0}", &format_post_type(post_type.as_ref()))
+                    .replace("{0}", format_post_type(post_type.as_ref()))
                     .replace("{1}", post_type.as_ref())
                     .replace("{2}", data.as_ref()),
             ),
