@@ -25,7 +25,11 @@ pub async fn get_event_handler(
 
     match event {
         serenity::FullEvent::Ready { data_about_bot, .. } => {
-            info!("🤖 {} is Online", data_about_bot.user.name.to_string())
+            info!("🤖 {} is Online", data_about_bot.user.name.to_string());
+            ctx.set_presence(
+                Some(serenity::ActivityData::watching("for embeds")),
+                serenity::OnlineStatus::Online,
+            );
         }
         serenity::FullEvent::Message { new_message } => {
             // TODO: Add some kind of verification here to check SERVER_ID pref
@@ -266,7 +270,29 @@ async fn process_message(
         } // Exit early if no match
     };
 
-    let bot_message = message_to_suppress.reply(ctx, response).await?;
+    // Build reply. In guilds, include a Delete button when enabled in server config
+    let bot_message = if is_guild_context {
+        let mut msg = serenity::CreateMessage::new()
+            .reference_message(message_to_suppress)
+            .content(response)
+            .allowed_mentions(serenity::CreateAllowedMentions::new());
+
+        if !matches!(server_config.delete_permission, DeletePermission::Disabled) {
+            let delete_button = serenity::CreateButton::new("delete_bot_response")
+                .label("Delete")
+                .style(serenity::ButtonStyle::Danger);
+            let components = vec![serenity::CreateActionRow::Buttons(vec![delete_button])];
+            msg = msg.components(components);
+        }
+
+        message_to_suppress.channel_id.send_message(ctx, msg).await?
+    } else {
+        let msg = serenity::CreateMessage::new()
+            .reference_message(message_to_suppress)
+            .content(response)
+            .allowed_mentions(serenity::CreateAllowedMentions::new());
+        message_to_suppress.channel_id.send_message(ctx, msg).await?
+    };
     debug!("Bot replied with message ID: {}", bot_message.id);
 
     let should_suppress_embeds = server_config.hide_original_embed && is_guild_context;
@@ -312,7 +338,131 @@ async fn handle_component_interaction(
         }
     };
 
-    // Check if user has manage guild permissions
+    // Early handle for Delete button interactions (no Manage Server required)
+    if interaction.data.custom_id == "delete_bot_response" {
+        use super::db::DeletePermission as DP;
+        let config = ServerConfig::get_or_default(guild_id).await?;
+
+        // Determine if the clicker is allowed
+        let member = interaction.member.as_ref().unwrap();
+        let permissions = member.permissions.unwrap_or_default();
+
+        // Original author ID if the bot's message is a reply to a user's message
+        let original_author_id = interaction
+            .message
+            .referenced_message
+            .as_ref()
+            .map(|m| m.author.id);
+
+        let user_id = interaction.user.id;
+
+        let is_moderator = permissions.manage_messages() || permissions.administrator();
+        let is_author = original_author_id.map(|id| id == user_id).unwrap_or(false);
+
+        let allowed = match config.delete_permission {
+            DP::Disabled => false,
+            DP::Everyone => true,
+            DP::AuthorAndMods => is_author || is_moderator,
+        };
+
+        if !allowed {
+            interaction
+                .create_response(
+                    ctx,
+                    serenity::CreateInteractionResponse::Message(
+                        serenity::CreateInteractionResponseMessage::new()
+                            .content("❌ You don't have permission to delete this.")
+                            .ephemeral(true),
+                    ),
+                )
+                .await?;
+            return Ok(());
+        }
+
+        // Try to delete the bot's message (the message containing the button)
+        match interaction.message.delete(ctx).await {
+            Ok(()) => {
+                interaction
+                    .create_response(
+                        ctx,
+                        serenity::CreateInteractionResponse::Message(
+                            serenity::CreateInteractionResponseMessage::new()
+                                .content("🗑️ Deleted.")
+                                .ephemeral(true),
+                        ),
+                    )
+                    .await?;
+
+                // Attempt to restore original embeds on the referenced message (if we had suppressed)
+                if config.hide_original_embed {
+                    if let Some(orig) = interaction.message.referenced_message.as_ref() {
+                        match orig
+                            .channel_id
+                            .edit_message(
+                                ctx,
+                                orig.id,
+                                serenity::EditMessage::new().suppress_embeds(false),
+                            )
+                            .await
+                        {
+                            Ok(_) => debug!(
+                                "Restored original embeds for message {} after deletion",
+                                orig.id
+                            ),
+                            Err(e) => error!(
+                                "Failed to restore original embeds for message {}: {}",
+                                orig.id, e
+                            ),
+                        }
+                    } else if let Some(msg_ref) = interaction.message.message_reference.as_ref() {
+                        if let Some(orig_id) = msg_ref.message_id {
+                            let channel_id = msg_ref.channel_id;
+                            match channel_id
+                                .edit_message(
+                                    ctx,
+                                    orig_id,
+                                    serenity::EditMessage::new().suppress_embeds(false),
+                                )
+                                .await
+                            {
+                                Ok(_) => debug!(
+                                    "Restored original embeds for message {} (via reference) after deletion",
+                                    orig_id
+                                ),
+                                Err(e) => error!(
+                                    "Failed to restore original embeds for message {} (via reference): {}",
+                                    orig_id, e
+                                ),
+                            }
+                        } else {
+                            debug!(
+                                "message_reference present but missing message_id; cannot restore embeds"
+                            );
+                        }
+                    } else {
+                        debug!("No referenced message; cannot restore original embeds");
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Failed to delete bot message: {}", e);
+                interaction
+                    .create_response(
+                        ctx,
+                        serenity::CreateInteractionResponse::Message(
+                            serenity::CreateInteractionResponseMessage::new()
+                                .content("❌ Failed to delete message. Try again.")
+                                .ephemeral(true),
+                        ),
+                    )
+                    .await?;
+            }
+        }
+
+        return Ok(());
+    }
+
+    // Check if user has manage guild permissions for config interactions
     let member = interaction.member.as_ref().unwrap();
     let permissions = member.permissions.unwrap_or_default();
     if !permissions.manage_guild() {
