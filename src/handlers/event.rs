@@ -92,7 +92,42 @@ async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Res
         return Ok(());
     }
 
-    process_message(ctx, &message, &server_config, message.guild_id.is_some()).await
+    let result = process_message(ctx, &message, &server_config, message.guild_id.is_some()).await;
+
+    // If we're in ManualBoth mode and the trigger was a mention, clean up the emoji
+    if matches!(server_config.sanitizer_mode, SanitizerMode::ManualBoth) {
+        // Remove from the current message (reply)
+        match message
+            .delete_reaction_emoji(ctx, SANITIZER_EMOJI.clone())
+            .await
+        {
+            Ok(()) => debug!(
+                "Removed sanitizer emoji reactions from current message after mention trigger"
+            ),
+            Err(e) => error!(
+                "Failed to remove sanitizer emoji reactions from current message: {}",
+                e
+            ),
+        }
+
+        // Also remove from the referenced/original message if present, to prevent re-triggers
+        if let Some(referenced_message) = &message.referenced_message {
+            match referenced_message
+                .delete_reaction_emoji(ctx, SANITIZER_EMOJI.clone())
+                .await
+            {
+                Ok(()) => debug!(
+                    "Removed sanitizer emoji reactions from referenced message after mention trigger"
+                ),
+                Err(e) => error!(
+                    "Failed to remove sanitizer emoji reactions from referenced message: {}",
+                    e
+                ),
+            }
+        }
+    }
+
+    result
 }
 
 async fn on_reaction_add(
@@ -143,7 +178,22 @@ async fn on_reaction_add(
     match server_config.sanitizer_mode {
         SanitizerMode::ManualEmote | SanitizerMode::ManualBoth => {
             debug!("Emote mode enabled, processing message");
-            process_message(ctx, &message, &server_config, reaction.guild_id.is_some()).await
+            let result =
+                process_message(ctx, &message, &server_config, reaction.guild_id.is_some()).await;
+
+            // Remove all occurrences of the sanitizer emoji from the original message
+            // (both the bot's and users') to prevent repeated triggers
+            match message
+                .delete_reaction_emoji(ctx, SANITIZER_EMOJI.clone())
+                .await
+            {
+                Ok(()) => debug!(
+                    "Removed sanitizer emoji reactions to prevent repeated triggers"
+                ),
+                Err(e) => error!("Failed to remove sanitizer emoji reactions: {}", e),
+            }
+
+            result
         }
         _ => {
             debug!("Manual emote not enabled, exiting");
@@ -216,7 +266,7 @@ async fn process_message(
         } // Exit early if no match
     };
 
-    let bot_message = message.reply(ctx, response).await?;
+    let bot_message = message_to_suppress.reply(ctx, response).await?;
     debug!("Bot replied with message ID: {}", bot_message.id);
 
     let should_suppress_embeds = server_config.hide_original_embed && is_guild_context;
