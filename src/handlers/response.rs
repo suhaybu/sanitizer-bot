@@ -15,6 +15,7 @@ pub async fn handle_response_event(
     user_message: &serenity::Message,
     bot_message: &serenity::Message,
     suppress_embed: bool,
+    _sanitizer_mode: crate::handlers::db::SanitizerMode,
 ) -> Result<()> {
     debug!("handle_response_event called:");
     debug!("  user_message.id: {}", user_message.id);
@@ -48,12 +49,16 @@ pub async fn handle_response_event(
             debug!("Valid response, skipping embed suppression due to config or DM");
         }
         (false, _) => {
-            debug!("Invalid response, deleting bot message and showing error");
-            bot_message.delete(ctx).await?;
+            debug!("Invalid response detected");
+            // Always try to delete the invalid bot message
+            if let Err(e) = bot_message.delete(ctx).await {
+                warn!("Failed to delete invalid bot message: {}", e);
+            }
 
+            // Show a temporary error message and delete it after a delay (all modes)
             let error_embed = CreateEmbed::new()
-                .title("Sorry   ꒰ ꒡⌓꒡꒱")
-                .description("Something went wrong.")
+                .title("Post doesn't exist")
+                .description("The post you're trying to view doesn't exist or isn't available.")
                 .color(0xd1001f);
 
             let error_message = user_message
@@ -63,14 +68,16 @@ pub async fn handle_response_event(
                     CreateMessage::new()
                         .reference_message(user_message)
                         .add_embed(error_embed)
-                        .allowed_mentions(CreateAllowedMentions::new()), // .allowed_mentions(CreateAllowedMentions::new()),
+                        .allowed_mentions(CreateAllowedMentions::new()),
                 )
                 .await?;
 
             sleep(Duration::from_secs(10)).await;
-            
             if let Err(e) = error_message.delete(ctx).await {
-                warn!("Failed to delete temporary error message {}: {:?}", error_message.id, e);
+                warn!(
+                    "Failed to delete temporary error message {}: {:?}",
+                    error_message.id, e
+                );
             }
         }
     }
@@ -109,19 +116,26 @@ pub async fn handle_response_interaction(
 
     if !valid_response {
         if super::user_input::is_guild_install(&ctx) {
-            // Delete the invalid bot message
-            bot_message.delete(ctx).await?;
-            // Create and send ephemeral error message
-            let error_embed = CreateEmbed::new()
-                .title("Sorry   ꒰ ꒡⌓꒡꒱")
-                .description("Something went wrong.")
-                .color(0xd1001f);
+            // Try to delete the invalid bot message; if we cannot delete (e.g., missing access), do nothing further
+            match bot_message.delete(ctx).await {
+                Ok(()) => {
+                    // Create and send ephemeral error message only when deletion succeeded
+                    let error_embed = CreateEmbed::new()
+                        .title("Sorry   ꒰ ꒡⌓꒡꒱")
+                        .description("Something went wrong.")
+                        .color(0xd1001f);
 
-            let builder = poise::CreateReply::default()
-                .embed(error_embed)
-                .ephemeral(true);
+                    let builder = poise::CreateReply::default()
+                        .embed(error_embed)
+                        .ephemeral(true);
 
-            ctx.send(builder).await?;
+                    ctx.send(builder).await?;
+                }
+                Err(e) => {
+                    warn!("Failed to delete bot message (likely missing access): {}", e);
+                    // Don't send any public or ephemeral error to avoid noise when lacking permissions
+                }
+            }
         } else {
             // TODO: Edits valid response
             ctx.interaction
