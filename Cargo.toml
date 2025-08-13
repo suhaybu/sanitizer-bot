@@ -15,7 +15,7 @@ reqwest = { version = "0.12", features = [
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-tokio = { version = "1.45", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 console-subscriber = "0.4"
@@ -44,4 +44,4 @@ opt-level = 3     # Maximum optimization
 git = "https://github.com/serenity-rs/poise"
 # branch = "current" (Actually "next")
 # rev = "2c99507892037da2ec1b51b698e998349f1a9e31"
-rev = "ad58a59b71b1307a84d003c9da4f7337cb792ede"
+rev = "7f265e554a9a90068ea4df5dc502f38255bc0d59"
