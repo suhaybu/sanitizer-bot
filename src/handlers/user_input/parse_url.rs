@@ -106,7 +106,7 @@ mod tests {
     use super::*;
 
     // This function takes the user input, if there is a match, it returns a ParsedURL enum
-    fn parse_url(user_input: &str) -> Option<ParsedURL> {
+    fn parse_url(user_input: &str) -> Option<ParsedURL<'_>> {
         ParsedURL::new(&user_input)
     }
 

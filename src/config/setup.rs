@@ -26,12 +26,12 @@ pub fn init() -> Result<()> {
 
 fn setup_logging() -> Result<()> {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        EnvFilter::try_new("info,serenity=warn").expect("Invalid default filter")
+        EnvFilter::try_new("info,twilight=warn").expect("Invalid default filter")
     });
 
     // Debug mode
     // let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-    //     EnvFilter::try_new("sanitizer_bot_rs=debug,serenity=warn,rustls=warn,tungstenite=warn")
+    //     EnvFilter::try_new("sanitizer_bot_rs=debug,twilight=warn,rustls=warn,tungstenite=warn")
     //         .expect("Invalid default filter")
     // });
 

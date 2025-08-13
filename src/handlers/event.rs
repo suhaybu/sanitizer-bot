@@ -1,411 +1,126 @@
 use std::sync::LazyLock;
 
-use anyhow::Error;
-use poise::serenity_prelude::{self as serenity, EmojiId};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
+use twilight_http::Client;
+use twilight_model::channel::Message;
+use twilight_model::channel::message::ReactionType;
+use twilight_model::gateway::payload::incoming::{MessageCreate, ReactionAdd};
+use twilight_model::id::{marker::{EmojiMarker, UserMarker}, Id};
 
-use crate::Data;
-use crate::handlers::{handle_response_event, sanitize_input};
+use crate::handlers::response::wait_for_message_embed;
+use crate::handlers::sanitize_input;
 
-use super::db::{DeletePermission, SanitizerMode, ServerConfig};
+use super::db::{SanitizerMode, ServerConfig};
 
-static SANITIZER_EMOJI: LazyLock<serenity::ReactionType> =
-    LazyLock::new(|| serenity::ReactionType::Custom {
-        animated: false,
-        id: EmojiId::new(1206376642042138724),
-        name: Some("Sanitized".to_string()),
-    });
+static SANITIZER_EMOJI_ID: LazyLock<Id<EmojiMarker>> = LazyLock::new(|| Id::new(1206376642042138724));
 
-pub async fn get_event_handler(
-    framework: poise::FrameworkContext<'_, Data, Error>,
-    event: &serenity::FullEvent,
-) -> Result<(), Error> {
-    let ctx = framework.serenity_context;
-    // let data = framework.user_data;
-
-    match event {
-        serenity::FullEvent::Ready { data_about_bot, .. } => {
-            info!("🤖 {} is Online", data_about_bot.user.name.to_string())
-        }
-        serenity::FullEvent::Message { new_message } => {
-            // TODO: Add some kind of verification here to check SERVER_ID pref
-            on_message(&ctx, new_message).await?;
-        }
-        serenity::FullEvent::ReactionAdd { add_reaction } => {
-            on_reaction_add(&ctx, add_reaction).await?;
-        }
-        serenity::FullEvent::GuildCreate { guild, .. } => {
-            let _config = ServerConfig::get_or_default(guild.id.get()).await?;
-        }
-        serenity::FullEvent::InteractionCreate { interaction } => {
-            if let serenity::Interaction::Component(component) = interaction {
-                handle_component_interaction(&ctx, component).await?;
-            }
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
-async fn on_message(ctx: &serenity::Context, message: &serenity::Message) -> Result<(), Error> {
-    // Exits if message author is from bot itself
-    if message.author.id == ctx.cache.current_user().id {
-        debug!("Skipping message from self");
-        return Ok(());
-    }
+pub async fn on_message_twilight(event: MessageCreate, client: std::sync::Arc<Client>, bot_user_id: Id<UserMarker>) {
+    let message = event.0;
+    if message.author.bot { return; }
 
     debug!("Message received from user: {}", message.author.name);
     debug!("Channel id: {:?}", message.channel_id);
 
     let server_config = match message.guild_id {
-        Some(guild_id) => ServerConfig::get_or_default(guild_id.get()).await?,
+        Some(guild_id) => ServerConfig::get_or_default(guild_id.get()).await.unwrap_or(ServerConfig::default(0)),
         None => ServerConfig::default(0),
     };
 
+    let mentions_bot = message.mentions.iter().any(|u| u.id == bot_user_id);
+
     let should_process = match server_config.sanitizer_mode {
         SanitizerMode::Automatic => true,
-        SanitizerMode::ManualMention => message.mentions_me(ctx).await?,
-        SanitizerMode::ManualEmote => {
-            if message.content.trim().to_lowercase().contains("http")
-                && crate::handlers::user_input::ParsedURL::new(message.content.trim()).is_some()
-            {
-                let _ = message.react(ctx, SANITIZER_EMOJI.clone()).await?;
-            }
-            false
-        }
-        SanitizerMode::ManualBoth => {
-            if message.mentions_me(ctx).await? {
-                true
-            } else {
-                if message.content.trim().to_lowercase().contains("http")
-                    && crate::handlers::user_input::ParsedURL::new(message.content.trim()).is_some()
-                {
-                    let _ = message.react(ctx, SANITIZER_EMOJI.clone()).await?;
+        SanitizerMode::ManualMention => mentions_bot,
+        SanitizerMode::ManualEmote => false,
+        SanitizerMode::ManualBoth => mentions_bot,
+    };
+
+    if !should_process { return; }
+
+    if let Err(e) = process_message_twilight(&message, &server_config, client.clone()).await {
+        error!(?e, "failed to process message");
+    }
+}
+
+pub async fn on_reaction_add_twilight(event: ReactionAdd, client: std::sync::Arc<Client>) {
+    let reaction = event.0;
+    if reaction.guild_id.is_none() { return; }
+
+    if matches!(&reaction.emoji, ReactionType::Custom { id, .. } if id == &*SANITIZER_EMOJI_ID) {
+        // Load message
+        if let Ok(resp) = client.message(reaction.channel_id, reaction.message_id).await {
+            if let Ok(msg) = resp.model().await {
+            let server_config = ServerConfig::get_or_default(reaction.guild_id.unwrap().get())
+                .await
+                .unwrap_or(ServerConfig::default(0));
+            if matches!(server_config.sanitizer_mode, SanitizerMode::ManualEmote | SanitizerMode::ManualBoth) {
+                if let Err(e) = process_message_twilight(&msg, &server_config, client.clone()).await {
+                    error!(?e, "failed to process reaction message");
                 }
-                false
+            }
             }
         }
-    };
-
-    // Exit early
-    if !should_process {
-        return Ok(());
-    }
-
-    process_message(ctx, &message, &server_config, message.guild_id.is_some()).await
-}
-
-async fn on_reaction_add(
-    ctx: &serenity::Context,
-    reaction: &serenity::Reaction,
-) -> Result<(), Error> {
-    let bot_user_id = ctx.cache.current_user().id;
-
-    // Skip if the reaction is from the bot
-    if let Some(user_id) = reaction.user_id {
-        if user_id == bot_user_id {
-            debug!("Skipping reaction from self");
-            return Ok(());
-        }
-    }
-    // Skip if message is from the bot
-    let message = match reaction.message(ctx).await {
-        Ok(message) => message,
-        Err(e) => {
-            error!("Failed to get message from reaction: {}", e);
-            return Ok(());
-        }
-    };
-
-    if message.author.id == bot_user_id {
-        debug!("Skipping, reacted message is by self");
-        return Ok(());
-    }
-
-    let is_correct_emoji = reaction.emoji == *SANITIZER_EMOJI;
-
-    if !is_correct_emoji {
-        debug!("Reaction is not the sanitizer emoji, skipping");
-        return Ok(());
-    }
-
-    debug!("Sanitizer emoji detected");
-
-    let server_config = match reaction.guild_id {
-        Some(guild_id) => ServerConfig::get_or_default(guild_id.get()).await?,
-        None => {
-            // I don't think this case ever happens, but just to be safe
-            debug!("Reaction in DM, skipping");
-            return Ok(());
-        }
-    };
-
-    match server_config.sanitizer_mode {
-        SanitizerMode::ManualEmote | SanitizerMode::ManualBoth => {
-            debug!("Emote mode enabled, processing message");
-            process_message(ctx, &message, &server_config, reaction.guild_id.is_some()).await
-        }
-        _ => {
-            debug!("Manual emote not enabled, exiting");
-            return Ok(());
-        }
     }
 }
 
-async fn process_message(
-    ctx: &serenity::Context,
-    message: &serenity::Message,
+async fn process_message_twilight(
+    message: &Message,
     server_config: &ServerConfig,
-    is_guild_context: bool,
-) -> Result<(), Error> {
+    client: std::sync::Arc<Client>,
+) -> anyhow::Result<()> {
     debug!("process_message called:");
     debug!("message.id: {}", message.id);
     debug!("message.author: {}", message.author.name);
-    debug!(
-        "server_config.sanitizer_mode: {:?}",
-        server_config.sanitizer_mode
-    );
-    debug!(
-        "server_config.hide_original_embed: {}",
-        server_config.hide_original_embed
-    );
+    debug!("server_config.sanitizer_mode: {:?}", server_config.sanitizer_mode);
+    debug!("server_config.hide_original_embed: {}", server_config.hide_original_embed);
 
-    let (input, message_to_suppress) = match server_config.sanitizer_mode {
-        SanitizerMode::ManualMention | SanitizerMode::ManualBoth => {
-            if message.content.trim().to_lowercase().contains("http") {
-                debug!("Using message content as input");
-                (message.content.trim(), message) // Return message with mention + url
-            } else if let Some(referenced_message) = &message.referenced_message {
-                if referenced_message
-                    .content
-                    .trim()
-                    .to_lowercase()
-                    .contains("http")
-                {
-                    debug!("Using referenced message content as input");
-                    (
-                        referenced_message.content.trim(),
-                        referenced_message.as_ref(),
-                    )
-                } else {
-                    debug!("Referenced message does not contain URL, exiting");
-                    return Ok(()); // Referenced message does not contain a url, so exit
-                }
-            } else {
-                debug!("No referenced message exists, exiting");
-                return Ok(()); // No referenced message exists, so exit
-            }
+    let (input, message_to_suppress_id, channel_id) = if message.content.trim().to_lowercase().contains("http") {
+        (message.content.trim(), message.id, message.channel_id)
+    } else if let Some(referenced) = message.referenced_message.as_ref() {
+        if referenced.content.trim().to_lowercase().contains("http") {
+            (referenced.content.trim(), referenced.id, message.channel_id)
+        } else {
+            return Ok(());
         }
-
-        _ => {
-            debug!("Using message content as input (automatic mode)");
-            (message.content.trim(), message)
-        }
+    } else {
+        return Ok(());
     };
 
     debug!("URL found, processing input: {}", input);
-
     let response = match sanitize_input(input).await {
-        Some(response) => {
-            debug!("sanitize_input returned: {}", response);
-            response
-        }
-        None => {
-            debug!("sanitize_input returned None, exiting");
-            return Ok(());
-        } // Exit early if no match
+        Some(r) => r,
+        None => return Ok(()),
     };
 
-    let bot_message = message.reply(ctx, response).await?;
-    debug!("Bot replied with message ID: {}", bot_message.id);
+    let created = client
+        .create_message(channel_id)
+        .content(&response)?
+        .await?
+        .model()
+        .await?;
+    debug!("Bot replied with message ID: {}", created.id);
 
-    let should_suppress_embeds = server_config.hide_original_embed && is_guild_context;
-
-    debug!(
-        "Calling handle_response_event with hide_original_embed: {}",
-        server_config.hide_original_embed
-    );
-    handle_response_event(
-        ctx,
-        message_to_suppress,
-        &bot_message,
-        should_suppress_embeds,
-    )
-    .await?;
+    if server_config.hide_original_embed && message.guild_id.is_some() {
+        if let Some(msg) = wait_for_message_embed(&client, created.id, created.channel_id).await {
+            if !check_message_valid(&msg) {
+                // delete invalid
+                let _ = client.delete_message(msg.channel_id, msg.id).await;
+            } else {
+                // suppress embeds
+                let _ = client
+                    .update_message(channel_id, message_to_suppress_id)
+                    .flags(twilight_model::channel::message::MessageFlags::SUPPRESS_EMBEDS)
+                    .await;
+            }
+        }
+    }
 
     Ok(())
 }
 
-async fn handle_component_interaction(
-    ctx: &serenity::Context,
-    interaction: &serenity::ComponentInteraction,
-) -> Result<(), Error> {
-    debug!(
-        "Component interaction received: {}",
-        interaction.data.custom_id
-    );
-
-    let guild_id = match interaction.guild_id {
-        Some(id) => id.get(),
-        None => {
-            interaction
-                .create_response(
-                    ctx,
-                    serenity::CreateInteractionResponse::Message(
-                        serenity::CreateInteractionResponseMessage::new()
-                            .content("❌ This can only be used in servers!")
-                            .ephemeral(true),
-                    ),
-                )
-                .await?;
-            return Ok(());
-        }
-    };
-
-    // Check if user has manage guild permissions
-    let member = interaction.member.as_ref().unwrap();
-    let permissions = member.permissions.unwrap_or_default();
-    if !permissions.manage_guild() {
-        interaction
-            .create_response(
-                ctx,
-                serenity::CreateInteractionResponse::Message(
-                    serenity::CreateInteractionResponseMessage::new()
-                        .content("❌ You need the 'Manage Server' permission to use this!")
-                        .ephemeral(true),
-                ),
-            )
-            .await?;
-        return Ok(());
-    }
-
-    // Get current config
-    let mut config = ServerConfig::get_or_default(guild_id).await?;
-
-    // Handle different select menu types
-    let response_message = match interaction.data.custom_id.as_str() {
-        "sanitizer_mode" => {
-            if let serenity::ComponentInteractionDataKind::StringSelect { values } =
-                &interaction.data.kind
-            {
-                if let Some(value) = values.first() {
-                    config.sanitizer_mode = match value.as_str() {
-                        "automatic" => SanitizerMode::Automatic,
-                        "manual_emote" => SanitizerMode::ManualEmote,
-                        "manual_mention" => SanitizerMode::ManualMention,
-                        "manual_both" => SanitizerMode::ManualBoth,
-                        _ => SanitizerMode::Automatic,
-                    };
-
-                    let mode_text = match config.sanitizer_mode {
-                        SanitizerMode::Automatic => "Automatic",
-                        SanitizerMode::ManualEmote => "Manual (Emote)",
-                        SanitizerMode::ManualMention => "Manual (Mention)",
-                        SanitizerMode::ManualBoth => "Manual (Emote and Mention)",
-                    };
-
-                    format!("✅ Switched to {} mode", mode_text)
-                } else {
-                    "❌ No option selected".to_string()
-                }
-            } else {
-                "❌ Invalid interaction data".to_string()
-            }
-        }
-        "delete_permission" => {
-            if let serenity::ComponentInteractionDataKind::StringSelect { values } =
-                &interaction.data.kind
-            {
-                if let Some(value) = values.first() {
-                    config.delete_permission = match value.as_str() {
-                        "author_and_mods" => DeletePermission::AuthorAndMods,
-                        "everyone" => DeletePermission::Everyone,
-                        "disabled" => DeletePermission::Disabled,
-                        _ => DeletePermission::AuthorAndMods,
-                    };
-
-                    let perm_text = match config.delete_permission {
-                        DeletePermission::AuthorAndMods => "default (Author and moderators)",
-                        DeletePermission::Everyone => "everyone",
-                        DeletePermission::Disabled => "disabled",
-                    };
-
-                    format!("✅ Set delete button permissions to {}", perm_text)
-                } else {
-                    "❌ No option selected".to_string()
-                }
-            } else {
-                "❌ Invalid interaction data".to_string()
-            }
-        }
-        "hide_original_embed" => {
-            if let serenity::ComponentInteractionDataKind::StringSelect { values } =
-                &interaction.data.kind
-            {
-                if let Some(value) = values.first() {
-                    config.hide_original_embed = value == "hide";
-
-                    if config.hide_original_embed {
-                        "✅ Enabled hiding original message's embed".to_string()
-                    } else {
-                        "✅ Disabled hiding original message's embed".to_string()
-                    }
-                } else {
-                    "❌ No option selected".to_string()
-                }
-            } else {
-                "❌ Invalid interaction data".to_string()
-            }
-        }
-        _ => {
-            debug!(
-                "Unknown component interaction: {}",
-                interaction.data.custom_id
-            );
-            return Ok(());
-        }
-    };
-
-    match config.save().await {
-        Ok(()) => {
-            // Send response
-            interaction
-                .create_response(
-                    ctx,
-                    serenity::CreateInteractionResponse::Message(
-                        serenity::CreateInteractionResponseMessage::new()
-                            .content(response_message)
-                            .ephemeral(true),
-                    ),
-                )
-                .await?;
-
-            if let Err(e) = super::db::sync_database().await {
-                error!("Failed to sync database after config save: {:?}", e);
-            } else {
-                debug!(
-                    "Database synced successfully after config change for guild {}",
-                    guild_id
-                );
-            }
-        }
-        Err(e) => {
-            error!("Failed to save server config: {:?}", e);
-
-            interaction
-                .create_response(
-                    ctx,
-                    serenity::CreateInteractionResponse::Message(
-                        serenity::CreateInteractionResponseMessage::new()
-                            .content("❌ Failed to save configuration. Please try again.")
-                            .ephemeral(true),
-                    ),
-                )
-                .await?;
-
-            return Ok(());
-        }
-    }
-
-    Ok(())
+fn check_message_valid(msg: &Message) -> bool {
+    if msg.embeds.is_empty() { return false; }
+    let e = &msg.embeds[0];
+    if e.video.is_some() { return true; }
+    true
 }

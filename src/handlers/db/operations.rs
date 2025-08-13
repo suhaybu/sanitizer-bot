@@ -33,7 +33,7 @@ impl ServerConfig {
                            FROM server_configs WHERE guild_id = ?";
 
         match conn.prepare(sql).await {
-            Ok(mut stmt) => {
+            Ok(stmt) => {
                 let mut rows = stmt
                     .query(params![guild_id as i64])
                     .await
@@ -84,7 +84,7 @@ impl ServerConfig {
         .await
         .context("Failed to save server config")?;
 
-        debug!("Saved cofnig for guild {}", self.guild_id);
+        debug!("Saved config for guild {}", self.guild_id);
         Ok(())
     }
 

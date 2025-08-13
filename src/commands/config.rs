@@ -1,141 +1,157 @@
-use anyhow::Result;
-use poise::serenity_prelude as serenity;
-use tracing::debug;
+use twilight_http::Client;
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::application::interaction::{application_command::CommandData, Interaction};
+use twilight_model::http::interaction::{InteractionResponse, InteractionResponseType};
+use twilight_util::builder::{
+    embed::EmbedBuilder,
+    InteractionResponseDataBuilder,
+};
+use twilight_model::channel::message::component::{
+    ActionRow, Component, SelectMenu, SelectMenuOption,
+};
 
-use crate::Context;
 use crate::handlers::db::{DeletePermission, SanitizerMode, ServerConfig};
 
 /// Configure Sanitizer settings for this server 🛠️
-#[poise::command(
-    slash_command,
-    rename = "config",
-    default_member_permissions = "MANAGE_GUILD",
-    install_context = "Guild",
-    interaction_context = "Guild",
-    guild_only = true
-)]
-pub async fn config(ctx: Context<'_>) -> Result<()> {
-    debug!("Config command invoked for guild: {:?}", ctx.guild_id());
+#[derive(CommandModel, CreateCommand, Debug)]
+#[command(name = "config", desc = "Configure Sanitizer settings for this server")]
+pub struct ConfigCommand;
 
-    let guild_id = match ctx.guild_id() {
-        Some(id) => id.get(),
-        None => {
-            ctx.say("❌ This command can only be used in servers!")
-                .await?;
-            return Ok(());
-        }
-    };
+impl ConfigCommand {
+    pub async fn handle(
+        interaction: Interaction,
+        _data: CommandData,
+        client: &Client,
+    ) -> anyhow::Result<()> {
+        let guild_id = match interaction.guild_id {
+            Some(id) => id.get(),
+            None => {
+                let data = InteractionResponseDataBuilder::new()
+                    .content("❌ This command can only be used in servers!")
+                    .flags(twilight_model::channel::message::MessageFlags::EPHEMERAL)
+                    .build();
+                let response = InteractionResponse {
+                    kind: InteractionResponseType::ChannelMessageWithSource,
+                    data: Some(data),
+                };
+                client
+                    .interaction(interaction.application_id)
+                    .create_response(interaction.id, &interaction.token, &response)
+                    .await?;
+                return Ok(());
+            }
+        };
 
-    // Get current server config
-    let server_config = ServerConfig::get_or_default(guild_id).await?;
-    debug!("Current server config: {:?}", server_config);
+        let server_config = ServerConfig::get_or_default(guild_id).await?;
 
-    // Create embed
-    let embed = serenity::CreateEmbed::new()
-        .title("Sanitizer Settings 🛠️")
-        .description(
-            "**Sanitizer mode**\nSwitch between **Automatic** and **Manual** modes.\n\n\
+        let embed = EmbedBuilder::new()
+            .title("Sanitizer Settings 🛠️")
+            .description("**Sanitizer mode**\nSwitch between **Automatic** and **Manual** modes.\n\n\
              **Delete Permission (Coming soon)**\nChange who is allowed to use the delete button.\n\n\
-             **Keep or Hide original embed**\nToggle whether the original message's embed \n (media preview) should be hidden or kept.",
-        )
-        .color(0x12F2E4); // 1242180 in hex
+             **Keep or Hide original embed**\nToggle whether the original message's embed \n (media preview) should be hidden or kept.")
+            .color(0x12F2E4)
+            .build();
 
-    // Create sanitizer mode select menu
-    let sanitizer_mode_menu = serenity::CreateSelectMenu::new(
-        "sanitizer_mode",
-        serenity::CreateSelectMenuKind::String {
-            options: vec![
-                serenity::CreateSelectMenuOption::new("Mode: Automatic", "automatic")
-                    .description("Bot automatically fixes all compatible links (Default)")
-                    .emoji(serenity::ReactionType::Unicode("🤖".to_string()))
-                    .default_selection(server_config.sanitizer_mode == SanitizerMode::Automatic),
-                serenity::CreateSelectMenuOption::new("Mode: Manual (Emote)", "manual_emote")
-                    .description("Fix links by reacting with 🫧")
-                    .emoji(serenity::ReactionType::Unicode("🫧".to_string()))
-                    .default_selection(server_config.sanitizer_mode == SanitizerMode::ManualEmote),
-                serenity::CreateSelectMenuOption::new("Mode: Manual (Mention)", "manual_mention")
-                    .description("Fix links by mentioning @Sanitizer")
-                    .emoji(serenity::ReactionType::Unicode("💬".to_string()))
-                    .default_selection(
-                        server_config.sanitizer_mode == SanitizerMode::ManualMention,
-                    ),
-                serenity::CreateSelectMenuOption::new(
-                    "Mode: Manual (Both: Emote + Mention)",
-                    "manual_both",
-                )
-                .description("Fix links using either emote or mention")
-                .emoji(serenity::ReactionType::Unicode("🔄".to_string()))
-                .default_selection(server_config.sanitizer_mode == SanitizerMode::ManualBoth),
-            ],
-        },
-    )
-    .placeholder("Select Sanitizer Mode");
+        // Select menus
+        let sanitizer_options = [
+            ("Mode: Automatic", "automatic", server_config.sanitizer_mode == SanitizerMode::Automatic),
+            ("Mode: Manual (Emote)", "manual_emote", server_config.sanitizer_mode == SanitizerMode::ManualEmote),
+            ("Mode: Manual (Mention)", "manual_mention", server_config.sanitizer_mode == SanitizerMode::ManualMention),
+            ("Mode: Manual (Both: Emote + Mention)", "manual_both", server_config.sanitizer_mode == SanitizerMode::ManualBoth),
+        ];
+        let sanitizer_menu = Component::SelectMenu(SelectMenu {
+            custom_id: "sanitizer_mode".into(),
+            placeholder: Some("Select Sanitizer Mode".into()),
+            min_values: Some(1),
+            max_values: Some(1),
+            disabled: false,
+            options: sanitizer_options
+                .iter()
+                .map(|(label, value, selected)| SelectMenuOption {
+                    default: *selected,
+                    description: None,
+                    emoji: None,
+                    label: (*label).into(),
+                    value: (*value).into(),
+                })
+                .collect(),
+        });
 
-    // Create delete permission select menu
-    let delete_permission_menu = serenity::CreateSelectMenu::new(
-        "delete_permission",
-        serenity::CreateSelectMenuKind::String {
-            options: vec![
-                serenity::CreateSelectMenuOption::new(
-                    "Delete Permission: Author and Mods",
-                    "author_and_mods",
-                )
-                .description("Author and moderators only (Default)")
-                .emoji(serenity::ReactionType::Unicode("👤".to_string()))
-                .default_selection(
-                    server_config.delete_permission == DeletePermission::AuthorAndMods,
-                ),
-                serenity::CreateSelectMenuOption::new("Delete Permission: Everyone", "everyone")
-                    .description("Allow all users to delete")
-                    .emoji(serenity::ReactionType::Unicode("🌐".to_string()))
-                    .default_selection(
-                        server_config.delete_permission == DeletePermission::Everyone,
-                    ),
-                serenity::CreateSelectMenuOption::new("Delete Permission: Disabled", "disabled")
-                    .description("Disable delete button feature")
-                    .emoji(serenity::ReactionType::Unicode("🚫".to_string()))
-                    .default_selection(
-                        server_config.delete_permission == DeletePermission::Disabled,
-                    ),
-            ],
-        },
-    )
-    .placeholder("Delete Button - Coming Soon!")
-    .disabled(true);
+        let delete_options = [
+            ("Delete Permission: Author and Mods", "author_and_mods", server_config.delete_permission == DeletePermission::AuthorAndMods),
+            ("Delete Permission: Everyone", "everyone", server_config.delete_permission == DeletePermission::Everyone),
+            ("Delete Permission: Disabled", "disabled", server_config.delete_permission == DeletePermission::Disabled),
+        ];
+        let delete_menu = Component::SelectMenu(SelectMenu {
+            custom_id: "delete_permission".into(),
+            placeholder: Some("Delete Button - Coming Soon!".into()),
+            min_values: Some(1),
+            max_values: Some(1),
+            disabled: true,
+            options: delete_options
+                .iter()
+                .map(|(label, value, selected)| SelectMenuOption {
+                    default: *selected,
+                    description: None,
+                    emoji: None,
+                    label: (*label).into(),
+                    value: (*value).into(),
+                })
+                .collect(),
+        });
 
-    // Create hide embed select menu
-    let hide_embed_menu = serenity::CreateSelectMenu::new(
-        "hide_original_embed",
-        serenity::CreateSelectMenuKind::String {
-            options: vec![
-                serenity::CreateSelectMenuOption::new("Hide Original Embeds", "hide")
-                    .description("Hide original message's embed (Default)")
-                    .emoji(serenity::ReactionType::Unicode("✅".to_string()))
-                    .default_selection(server_config.hide_original_embed),
-                serenity::CreateSelectMenuOption::new("Keep Original Embeds", "show")
-                    .description("Keep original message's embed visible")
-                    .emoji(serenity::ReactionType::Unicode("❌".to_string()))
-                    .default_selection(!server_config.hide_original_embed),
-            ],
-        },
-    )
-    .placeholder("Select Original Embed Visibility");
+        let hide_options = [
+            ("Hide Original Embeds", "hide", server_config.hide_original_embed),
+            ("Keep Original Embeds", "show", !server_config.hide_original_embed),
+        ];
+        let hide_menu = Component::SelectMenu(SelectMenu {
+            custom_id: "hide_original_embed".into(),
+            placeholder: Some("Select Original Embed Visibility".into()),
+            min_values: Some(1),
+            max_values: Some(1),
+            disabled: false,
+            options: hide_options
+                .iter()
+                .map(|(label, value, selected)| SelectMenuOption {
+                    default: *selected,
+                    description: None,
+                    emoji: None,
+                    label: (*label).into(),
+                    value: (*value).into(),
+                })
+                .collect(),
+        });
 
-    // Create action rows
-    let components = vec![
-        serenity::CreateActionRow::SelectMenu(sanitizer_mode_menu),
-        serenity::CreateActionRow::SelectMenu(delete_permission_menu),
-        serenity::CreateActionRow::SelectMenu(hide_embed_menu),
-    ];
+        let components: Vec<Component> = vec![
+            Component::ActionRow(ActionRow {
+                components: vec![sanitizer_menu],
+            }),
+            Component::ActionRow(ActionRow {
+                components: vec![delete_menu],
+            }),
+            Component::ActionRow(ActionRow {
+                components: vec![hide_menu],
+            }),
+        ];
 
-    // Send the message
-    ctx.send(
-        poise::CreateReply::default()
-            .embed(embed)
+        let data = InteractionResponseDataBuilder::new()
+            .embeds([embed])
             .components(components)
-            .ephemeral(true),
-    )
-    .await?;
+            .flags(twilight_model::channel::message::MessageFlags::EPHEMERAL)
+            .build();
 
-    Ok(())
+        let response = InteractionResponse {
+            kind: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(data),
+        };
+        client
+            .interaction(interaction.application_id)
+            .create_response(interaction.id, &interaction.token, &response)
+            .await?;
+
+        // Save default config so future updates persist
+        let _ = server_config.save().await;
+
+        Ok(())
+    }
 }

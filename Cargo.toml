@@ -20,6 +20,15 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 console-subscriber = "0.4"
 libsql = "0.9"
+futures-util = "0.3"
+
+# Twilight (Discord) stack
+twilight-gateway = "0.15"
+twilight-http = "0.15"
+twilight-interactions = "0.15"
+twilight-model = "0.15"
+twilight-util = { version = "0.15", features = ["builder"] }
+twilight-mention = "0.15"
 
 [profile.release]
 strip = true      # Automatically strip symbols from the binary.
@@ -31,17 +40,4 @@ opt-level = 3     # Maximum optimization
 # [build]
 # rustflags = ["--cfg", "tokio_unstable"]
 
-# [patch.crates-io.serenity]
-# git = "https://github.com/serenity-rs/serenity"
-# branch = "current"
-
-# [dependencies.serenity]
-# git = "https://github.com/serenity-rs/serenity"
-# branch = "current"
-# rev = "25a4de8fd6f0bc13b875175cafba17a373268c26"
-
-[dependencies.poise]
-git = "https://github.com/serenity-rs/poise"
-# branch = "current" (Actually "next")
-# rev = "2c99507892037da2ec1b51b698e998349f1a9e31"
-rev = "ad58a59b71b1307a84d003c9da4f7337cb792ede"
+## serenity/poise removed in favor of twilight
