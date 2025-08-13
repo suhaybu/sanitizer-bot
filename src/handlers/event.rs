@@ -314,6 +314,7 @@ async fn process_message(
         message_to_suppress,
         &bot_message,
         should_suppress_embeds,
+        server_config.sanitizer_mode,
     )
     .await?;
 
