@@ -33,7 +33,7 @@ impl ServerConfig {
                            FROM server_configs WHERE guild_id = ?";
 
         match conn.prepare(sql).await {
-            Ok(mut stmt) => {
+            Ok(stmt) => {
                 let mut rows = stmt
                     .query(params![guild_id as i64])
                     .await
