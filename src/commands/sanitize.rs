@@ -2,9 +2,9 @@ use anyhow::Result;
 use poise::serenity_prelude as serenity;
 use tracing::debug;
 
+use crate::Context;
 use crate::handlers::handle_response_interaction;
 use crate::handlers::sanitize_input;
-use crate::Context;
 
 const INVALID_URL_MESSAGE: &str =
     "❌ Invalid URL. Please provide a valid TikTok, Instagram, or Twitter/X link.";
@@ -34,6 +34,7 @@ pub async fn sanitize_menu(ctx: Context<'_>, link: serenity::Message) -> Result<
     sanitize_handler(ctx, link.content).await
 }
 
+// Actual logic for sanitize slash command | menu command
 async fn sanitize_handler(ctx: Context<'_>, link: String) -> Result<()> {
     debug!("Sanitize command invoked for link: {}", link);
     debug!("Channel type: {:?}", ctx.channel_id());
