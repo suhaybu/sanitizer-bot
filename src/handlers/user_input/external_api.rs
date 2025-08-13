@@ -1,7 +1,12 @@
 // This file contains the logic for making the necessary external API calls
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
-use std::{sync::LazyLock, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::LazyLock,
+    time::{Duration, Instant},
+};
+use tokio::sync::RwLock;
 use tracing::{debug, error};
 
 const API_URL: &str = "https://api.quickvids.app/v2/quickvids/shorturl";
@@ -40,7 +45,7 @@ struct APIResponse {
     details: Option<VideoDetails>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FormattedResponse {
     pub username: Option<String>,
     pub url: String,
@@ -128,22 +133,68 @@ impl QuickVidsAPI {
     }
 
     pub async fn get_response(&self, url: &str) -> Option<FormattedResponse> {
-        // Try detailed request first
+        // Check cache first
+        if let Some(cached_response) = get_cached_response(url).await {
+            debug!("QuickVids cache hit for URL: {}", url);
+            return Some(cached_response);
+        }
+
+        // Else, Try detailed request first
         if let Some(api_response) = self.make_request(url, true).await {
-            return Some(FormattedResponse {
+            let formatted = FormattedResponse {
                 username: api_response.details.map(|details| details.author.username),
                 url: api_response.quickvids_url,
-            });
+            };
+            set_cached_response(url, &formatted).await;
+            return Some(formatted);
         }
 
         // Fallback to simple request
-        self.make_request(url, false)
+        let result = self
+            .make_request(url, false)
             .await
             .map(|api_response| FormattedResponse {
                 username: None,
                 url: api_response.quickvids_url,
-            })
+            });
+
+        if let Some(ref formatted) = result {
+            set_cached_response(url, formatted).await;
+        }
+
+        result
     }
+}
+
+// ---- Simple in-memory cache for QuickVids responses (5-minute TTL) ----
+
+const QUICKVIDS_CACHE_TTL: Duration = Duration::from_secs(5 * 60);
+
+struct CacheEntry {
+    value: FormattedResponse,
+    expires_at: Instant,
+}
+
+static QUICKVIDS_CACHE: LazyLock<RwLock<HashMap<String, CacheEntry>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+
+async fn get_cached_response(url: &str) -> Option<FormattedResponse> {
+    let cache = QUICKVIDS_CACHE.read().await;
+    if let Some(entry) = cache.get(url) {
+        if Instant::now() < entry.expires_at {
+            return Some(entry.value.clone());
+        }
+    }
+    None
+}
+
+async fn set_cached_response(url: &str, value: &FormattedResponse) {
+    let mut cache = QUICKVIDS_CACHE.write().await;
+    let entry = CacheEntry {
+        value: value.clone(),
+        expires_at: Instant::now() + QUICKVIDS_CACHE_TTL,
+    };
+    cache.insert(url.to_string(), entry);
 }
 
 #[cfg(test)]
