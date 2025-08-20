@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 use tracing;
 
-const TIKTOK_URL_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com/[^/]+/?\S*";
+const TIKTOK_URL_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com(?P<data>/.*)";
 const INSTAGRAM_URL_PATTERN: &str =
     r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reel|p)(?P<data>/[^/\s?]+)";
 const TWITTER_URL_PATTERN: &str =
@@ -37,11 +37,11 @@ fn build_regex_set() -> RegexResult<RegexSet> {
 pub enum ParsedURL<'a> {
     /// Captures for TikTok URLs
     ///
-    /// Example URL: "https://vt.tiktok.com/ZSYXeWygm/"
+    /// Example URL: "https://vm.tiktok.com/ZGdah868J/"
     ///
     /// Captures:
-    ///   - url: "https://vt.tiktok.com/ZSYXeWygm/"
-    Tiktok { url: Cow<'a, str> },
+    ///   - data: "/ZGdah868J/"
+    Tiktok { data: Cow<'a, str> },
 
     /// Captures for Instagram URLs
     ///
@@ -84,7 +84,7 @@ impl<'a> ParsedURL<'a> {
 
         match match_index {
             0 => Some(ParsedURL::Tiktok {
-                url: captures.get(0)?.as_str().into(),
+                data: captures.name("data")?.as_str().into(),
             }),
             1 => Some(ParsedURL::Instagram {
                 url: captures.get(0)?.as_str().into(),
@@ -111,14 +111,34 @@ mod tests {
     }
 
     #[test]
-    // TODO: The / in the end of the input URL mirrors the output URL.
-    // 		 Need to standerdize output regardless of input
     fn test_tiktok_url() {
-        let matches = parse_url("https://vt.tiktok.com/ZSYXeWygm");
+        let matches = parse_url("https://vm.tiktok.com/ZGdah868J/");
         assert_eq!(
             matches,
             Some(ParsedURL::Tiktok {
-                url: Cow::Borrowed("https://vt.tiktok.com/ZSYXeWygm"),
+                data: Cow::Borrowed("/ZGdah868J/"),
+            })
+        );
+    }
+
+    #[test]
+    fn test_tiktok_url_no_trailing_slash() {
+        let matches = parse_url("https://vm.tiktok.com/ZGdah868J");
+        assert_eq!(
+            matches,
+            Some(ParsedURL::Tiktok {
+                data: Cow::Borrowed("/ZGdah868J"),
+            })
+        );
+    }
+
+    #[test]
+    fn test_tiktok_full_url_format() {
+        let matches = parse_url("https://www.tiktok.com/@testuser/video/1234567890");
+        assert_eq!(
+            matches,
+            Some(ParsedURL::Tiktok {
+                data: Cow::Borrowed("/@testuser/video/1234567890"),
             })
         );
     }

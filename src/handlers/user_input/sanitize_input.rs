@@ -1,18 +1,16 @@
 use tracing::debug;
 
-use super::{external_api::QuickVidsAPI, parse_url::ParsedURL};
+use super::parse_url::ParsedURL;
 
 // Responses
 const TWITTER_TEMPLATE: &str = "[@{0} via X (Twitter)](https://fxtwitter.com{1})";
-const INSTAGRAM_API_TEMPLATE: &str = "[@{0} {1} via Instagram]({2})";
 const INSTAGRAM_TEMPLATE: &str = "[{0} via Instagram](https://g.ddinstagram.com/{1}{2})";
-const TIKTOK_TEMPLATE: &str = "[@{0} via TikTok]({1})";
+const TIKTOK_TEMPLATE: &str = "[Post via TikTok]({0})";
 
 pub async fn sanitize_input(user_input: &str) -> Option<String> {
     debug!("Attempting to parse URL: {}", user_input);
     let parsed_url = ParsedURL::new(user_input)?;
     debug!("URL parsed as: {:?}", parsed_url);
-    let api_client = QuickVidsAPI::new();
 
     let format_post_type = |post_type: &str| -> &'static str {
         match post_type {
@@ -32,29 +30,58 @@ pub async fn sanitize_input(user_input: &str) -> Option<String> {
         ParsedURL::Instagram {
             post_type,
             data,
-            url,
-        } => match api_client.get_response(&url).await {
-            Some(api_response) => Some(
-                INSTAGRAM_API_TEMPLATE
-                    .replace("{0}", &api_response.username.unwrap_or_default())
-                    .replace("{1}", format_post_type(post_type.as_ref()))
-                    .replace("{2}", &api_response.url),
-            ),
-            None => Some(
-                INSTAGRAM_TEMPLATE
-                    .replace("{0}", format_post_type(post_type.as_ref()))
-                    .replace("{1}", post_type.as_ref())
-                    .replace("{2}", data.as_ref()),
-            ),
-        },
+            url: _,
+        } => Some(
+            INSTAGRAM_TEMPLATE
+                .replace("{0}", format_post_type(post_type.as_ref()))
+                .replace("{1}", post_type.as_ref())
+                .replace("{2}", data.as_ref()),
+        ),
 
-        ParsedURL::Tiktok { url } => match api_client.get_response(url.as_ref()).await {
-            Some(api_response) => Some(
-                TIKTOK_TEMPLATE
-                    .replace("{0}", &api_response.username.unwrap_or_default())
-                    .replace("{1}", &api_response.url),
-            ),
-            None => None,
-        },
+        ParsedURL::Tiktok { data } => {
+            let vxtiktok_url = format!("https://vxtiktok.com{}", data.as_ref());
+            Some(TIKTOK_TEMPLATE.replace("{0}", &vxtiktok_url))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_tiktok_link_substitution() {
+        let result = sanitize_input("https://vm.tiktok.com/ZGdah868J/").await;
+        assert_eq!(result, Some("[Post via TikTok](https://vxtiktok.com/ZGdah868J/)".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_tiktok_link_substitution_no_trailing_slash() {
+        let result = sanitize_input("https://vm.tiktok.com/ZGdah868J").await;
+        assert_eq!(result, Some("[Post via TikTok](https://vxtiktok.com/ZGdah868J)".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_instagram_post_substitution() {
+        let result = sanitize_input("https://www.instagram.com/p/C9uiuh4KTlR/").await;
+        assert_eq!(result, Some("[Post via Instagram](https://g.ddinstagram.com/p/C9uiuh4KTlR)".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_instagram_reel_substitution() {
+        let result = sanitize_input("https://www.instagram.com/reel/C6lmbgLLflh/").await;
+        assert_eq!(result, Some("[Reel via Instagram](https://g.ddinstagram.com/reel/C6lmbgLLflh)".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_tiktok_full_url_substitution() {
+        let result = sanitize_input("https://www.tiktok.com/@misahere/video/7444680304293399850").await;
+        assert_eq!(result, Some("[Post via TikTok](https://vxtiktok.com/@misahere/video/7444680304293399850)".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_twitter_unchanged() {
+        let result = sanitize_input("https://x.com/loltyler1/status/179560257244486sf33").await;
+        assert_eq!(result, Some("[@loltyler1 via X (Twitter)](https://fxtwitter.com/status/179560257244486sf33)".to_string()));
     }
 }
