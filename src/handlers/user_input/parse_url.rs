@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 use tracing;
 
-const TIKTOK_URL_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com(?P<data>/.*)";
+const TIKTOK_URL_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com(?P<data>/\S*)";
 const INSTAGRAM_URL_PATTERN: &str =
     r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reel|p)(?P<data>/[^/\s?]+)";
 const TWITTER_URL_PATTERN: &str =
