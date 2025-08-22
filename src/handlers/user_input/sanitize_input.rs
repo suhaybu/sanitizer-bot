@@ -15,7 +15,7 @@ pub async fn sanitize_input(user_input: &str) -> Option<String> {
     let format_post_type = |post_type: &str| -> &'static str {
         match post_type {
             "p" => "Post",
-            "reel" => "Reel",
+            "reel" | "reels" => "Reel",
             _ => "",
         }
     };
@@ -71,6 +71,12 @@ mod tests {
     async fn test_instagram_reel_substitution() {
         let result = sanitize_input("https://www.instagram.com/reel/C6lmbgLLflh/").await;
         assert_eq!(result, Some("[Reel via Instagram](https://g.ddinstagram.com/reel/C6lmbgLLflh)".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_instagram_reels_substitution() {
+        let result = sanitize_input("https://www.instagram.com/reels/C6lmbgLLflh/").await;
+        assert_eq!(result, Some("[Reel via Instagram](https://g.ddinstagram.com/reels/C6lmbgLLflh)".to_string()));
     }
 
     #[tokio::test]

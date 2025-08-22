@@ -6,7 +6,7 @@ use tracing;
 
 const TIKTOK_URL_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com(?P<data>/\S*)";
 const INSTAGRAM_URL_PATTERN: &str =
-    r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reel|p)(?P<data>/[^/\s?]+)";
+    r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reels?|p)(?P<data>/[^/\s?]+)";
 const TWITTER_URL_PATTERN: &str =
     r"(?i)https?://(www\.)?(twitter|x)\.com/(?P<username>\w+)(?P<data>/status/[^?\s]*)";
 
@@ -164,6 +164,19 @@ mod tests {
             Some(ParsedURL::Instagram {
                 url: Cow::Borrowed("https://www.instagram.com/reel/C6lmbgLLflh"),
                 post_type: Cow::Borrowed("reel"),
+                data: Cow::Borrowed("/C6lmbgLLflh"),
+            })
+        );
+    }
+
+    #[test]
+    fn test_instagram_reels_url() {
+        let matches = parse_url("https://www.instagram.com/reels/C6lmbgLLflh/");
+        assert_eq!(
+            matches,
+            Some(ParsedURL::Instagram {
+                url: Cow::Borrowed("https://www.instagram.com/reels/C6lmbgLLflh"),
+                post_type: Cow::Borrowed("reels"),
                 data: Cow::Borrowed("/C6lmbgLLflh"),
             })
         );
