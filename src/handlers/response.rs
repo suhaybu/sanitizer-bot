@@ -23,6 +23,23 @@ pub async fn handle_response_event(
     debug!("  suppress_embed: {}", suppress_embed);
     debug!("  user_message.guild_id: {:?}", user_message.guild_id);
 
+    // Validation disabled - skip all validation logic
+    debug!("Validation disabled - skipping validation and error handling");
+    
+    // Only suppress embeds if requested, no validation checks
+    if suppress_embed {
+        debug!("Suppressing embeds as requested");
+        user_message
+            .channel_id
+            .edit_message(
+                &ctx,
+                user_message.id,
+                EditMessage::new().suppress_embeds(true),
+            )
+            .await?;
+    }
+
+    /* Original validation logic (commented out):
     // Wait for embeds to appear (up to 8 seconds)
     let valid_response = wait_for_embed(&ctx, bot_message.id, bot_message.channel_id)
         .await
@@ -81,6 +98,7 @@ pub async fn handle_response_event(
             }
         }
     }
+    */
 
     Ok(())
 }
@@ -97,6 +115,10 @@ pub async fn handle_response_interaction(
     debug!("Initial embed count: {}", bot_message.embeds.len());
     debug!("Message content: {}", bot_message.content);
 
+    // Validation disabled - skip all validation logic
+    debug!("Validation disabled - skipping validation and error handling for interactions");
+
+    /* Original validation logic (commented out):
     // Skip validation for private channels
     if ctx.interaction.context == Some(serenity::InteractionContext::PrivateChannel) {
         debug!("Skipping validation for private channel");
@@ -151,12 +173,19 @@ pub async fn handle_response_interaction(
                 .await?;
         }
     }
+    */
 
     Ok(())
 }
 
 // Logic used to validate if bot's response is valid
 fn check_bot_response(bot_message: &serenity::Message) -> bool {
+    debug!("Validation disabled - always returning true");
+    // Validation is disabled - always return true to skip error handling
+    return true;
+    
+    // Original validation logic (commented out):
+    /*
     debug!("Checking bot response for message ID: {}", bot_message.id);
 
     if bot_message.embeds.is_empty() {
@@ -194,6 +223,7 @@ fn check_bot_response(bot_message: &serenity::Message) -> bool {
             return true;
         }
     }
+    */
 }
 
 async fn wait_for_embed(
