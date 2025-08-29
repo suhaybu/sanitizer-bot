@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 use tracing;
 
-const TIKTOK_URL_PATTERN: &str = r"(?i)https?://(?:\w{1,3}\.)?tiktok\.com(?P<data>/\S*)";
+const TIKTOK_URL_PATTERN: &str = r"(?i)https?://(?P<subdomain>(?:\w{1,3}\.)?)(?P<domain>tiktok\.com)(?P<data>/\S*)";
 const INSTAGRAM_URL_PATTERN: &str =
     r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reels?|p)(?P<data>/[^/\s?]+)";
 const TWITTER_URL_PATTERN: &str =
@@ -40,8 +40,10 @@ pub enum ParsedURL<'a> {
     /// Example URL: "https://vm.tiktok.com/ZGdah868J/"
     ///
     /// Captures:
+    ///   - subdomain: "vm." (optional, can be empty)
+    ///   - domain: "tiktok.com"
     ///   - data: "/ZGdah868J/"
-    Tiktok { data: Cow<'a, str> },
+    Tiktok { subdomain: Cow<'a, str>, domain: Cow<'a, str>, data: Cow<'a, str> },
 
     /// Captures for Instagram URLs
     ///
@@ -84,6 +86,8 @@ impl<'a> ParsedURL<'a> {
 
         match match_index {
             0 => Some(ParsedURL::Tiktok {
+                subdomain: captures.name("subdomain").map(|m| m.as_str()).unwrap_or("").into(),
+                domain: captures.name("domain")?.as_str().into(),
                 data: captures.name("data")?.as_str().into(),
             }),
             1 => Some(ParsedURL::Instagram {
@@ -116,6 +120,8 @@ mod tests {
         assert_eq!(
             matches,
             Some(ParsedURL::Tiktok {
+                subdomain: Cow::Borrowed("vm."),
+                domain: Cow::Borrowed("tiktok.com"),
                 data: Cow::Borrowed("/ZGdah868J/"),
             })
         );
@@ -127,6 +133,8 @@ mod tests {
         assert_eq!(
             matches,
             Some(ParsedURL::Tiktok {
+                subdomain: Cow::Borrowed("vm."),
+                domain: Cow::Borrowed("tiktok.com"),
                 data: Cow::Borrowed("/ZGdah868J"),
             })
         );
@@ -138,6 +146,8 @@ mod tests {
         assert_eq!(
             matches,
             Some(ParsedURL::Tiktok {
+                subdomain: Cow::Borrowed("www."),
+                domain: Cow::Borrowed("tiktok.com"),
                 data: Cow::Borrowed("/@testuser/video/1234567890"),
             })
         );
