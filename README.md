@@ -15,7 +15,6 @@ This project is a reimplementation of [Sanitizer Bot (Python)](https://github.co
 -   **Configurable:** You can change the behavior of the bot using `/config`.
 -   **User Installable App:** The `/sanitize` app command can be used anywhere.
 -   **Handles Direct Messages:** Will attempt to fix links sent directly in DM's.
--   **Uses QuickVids API:** Uses QuickVids API to convert TikTok links into embeddable content in discord.
 
 
 ## Setup
@@ -29,7 +28,7 @@ This project is a reimplementation of [Sanitizer Bot (Python)](https://github.co
 | `TURSO_DATABASE_URL` | Database URL for storing server configurations | [Turso Dashboard](https://turso.tech/) |
 | `TURSO_AUTH_TOKEN` | Authentication token for Turso database access | [Turso Dashboard](https://turso.tech/) |
 
-2. Download the appropriate release with respect to your OS and run it!
+2. Download the release compatible with your OS and run it!
 
 3. Optionally, if you wish to build it yourself instead:
 ```fish
@@ -56,5 +55,6 @@ Twitter - [@suhayb_u](https://twitter.com/suhayb_u)
 ## Acknowledgments
 -   [serenity.rs](https://github.com/serenity-rs/serenity)
 -   [FxTwitter](https://github.com/FixTweet/FxTwitter)
--   [QuickVids](https://quickvids.app/)
+-   [kkScript](https://kkscript.com/)
 -   [InstaFix](https://github.com/Wikidepia/InstaFix)
+-   ~~[QuickVids](https://quickvids.app/)~~ (No longer used)
