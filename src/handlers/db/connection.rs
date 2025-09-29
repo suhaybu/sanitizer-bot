@@ -1,37 +1,19 @@
-use std::sync::LazyLock;
-
 use anyhow::{Context, Result};
+use libsql::{Connection, Database};
+use std::sync::OnceLock;
 use std::time::Duration;
-use libsql::{Builder, Connection, Database};
-use tracing::{debug, info};
+use tracing::{debug, warn};
 
-static DB: LazyLock<Database> = LazyLock::new(|| {
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            init_database()
-                .await
-                .expect("Failed to initialized database")
-        })
-    })
-});
+static DB: OnceLock<Database> = OnceLock::new();
 
-async fn init_database() -> Result<Database> {
-    let url = std::env::var("TURSO_DATABASE_URL").context("TURSO_DATABASE_URL must be set")?;
-    let auth_token = std::env::var("TURSO_AUTH_TOKEN").context("TURSO_AUTH_TOKEN must be set")?;
+/// Initialize the database with the provided Database instance from Shuttle
+pub fn init_database(database: Database) {
+    DB.set(database).expect("Database already initialized");
+}
 
-    info!("Initializing Turso Embedded Replica database");
-
-    let db = Builder::new_remote_replica("local.db", url, auth_token)
-        .build()
-        .await
-        .context("Failed to build database connection")?;
-
-    let conn = db.connect().context("Failed to connect to the database")?;
-    create_tables(&conn)
-        .await
-        .context("Failed to create database tables")?;
-
-    Ok(db)
+/// Get the initialized database instance
+fn get_db() -> &'static Database {
+    DB.get().expect("Database not initialized. Call init_database first.")
 }
 
 async fn create_tables(conn: &Connection) -> Result<()> {
@@ -55,30 +37,45 @@ async fn create_tables(conn: &Connection) -> Result<()> {
 }
 
 pub fn get_connection() -> Result<Connection> {
-    // Retry a few times to handle transient lock/availability during startup
+    // Retry a few times to handle transient lock/availability issues
     let mut delay = Duration::from_millis(100);
-    for attempt in 1..=5 {
-        match DB.connect() {
-            Ok(conn) => return Ok(conn),
-            Err(e) => {
-                if attempt == 5 {
-                    return Err(e).context("Failed to get database connection");
+    let max_attempts = 5;
+    
+    for attempt in 1..=max_attempts {
+        match get_db().connect() {
+            Ok(conn) => {
+                if attempt > 1 {
+                    debug!("Database connection established on attempt {}", attempt);
                 }
-                tracing::debug!(
-                    "get_connection failed (attempt {}), retrying in {:?}",
-                    attempt, delay
+                return Ok(conn);
+            }
+            Err(e) => {
+                if attempt == max_attempts {
+                    return Err(e).context("Failed to get database connection after multiple attempts");
+                }
+                warn!(
+                    "Database connection failed (attempt {}/{}), retrying in {:?}: {}",
+                    attempt, max_attempts, delay, e
                 );
                 std::thread::sleep(delay);
-                delay *= 2;
+                delay = delay.saturating_mul(2); // Exponential backoff
             }
         }
     }
-    unreachable!("retry loop must return or error out")
+    
+    unreachable!("Retry loop must return or error out")
 }
 
 pub async fn sync_database() -> Result<()> {
     debug!("Syncing database with remote");
-    DB.sync().await.context("Failed to sync database")?;
+    get_db().sync().await.context("Failed to sync database")?;
     debug!("Database sync completed");
+    Ok(())
+}
+
+/// Setup database tables - should be called during initialization
+pub async fn setup_database() -> Result<()> {
+    let conn = get_connection()?;
+    create_tables(&conn).await?;
     Ok(())
 }

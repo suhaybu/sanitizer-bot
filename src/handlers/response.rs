@@ -1,10 +1,5 @@
-use poise::serenity_prelude::CreateAllowedMentions;
-use poise::serenity_prelude::{
-    self as serenity, CreateEmbed, CreateMessage, EditInteractionResponse, EditMessage,
-};
-use std::time::Duration;
-use tokio::time::sleep;
-use tracing::{debug, warn};
+use poise::serenity_prelude::{self as serenity, EditMessage};
+use tracing::debug;
 
 use crate::Context;
 use crate::Result;
@@ -105,7 +100,7 @@ pub async fn handle_response_event(
 
 // On interaction (Command invocation)
 pub async fn handle_response_interaction(
-    ctx: &Context<'_>,
+    _ctx: &Context<'_>,
     bot_message: &serenity::Message,
 ) -> Result<()> {
     debug!(
@@ -178,14 +173,14 @@ pub async fn handle_response_interaction(
     Ok(())
 }
 
+// Commented out: Validation is currently disabled
+// If you want to re-enable validation in the future, uncomment the code below
+// and restore the necessary imports: CreateEmbed, CreateMessage, EditInteractionResponse, 
+// CreateAllowedMentions, warn, Duration, sleep
+
+/*
 // Logic used to validate if bot's response is valid
 fn check_bot_response(bot_message: &serenity::Message) -> bool {
-    debug!("Validation disabled - always returning true");
-    // Validation is disabled - always return true to skip error handling
-    return true;
-    
-    // Original validation logic (commented out):
-    /*
     debug!("Checking bot response for message ID: {}", bot_message.id);
 
     if bot_message.embeds.is_empty() {
@@ -223,7 +218,6 @@ fn check_bot_response(bot_message: &serenity::Message) -> bool {
             return true;
         }
     }
-    */
 }
 
 async fn wait_for_embed(
@@ -251,3 +245,4 @@ async fn wait_for_embed(
 
     None
 }
+*/

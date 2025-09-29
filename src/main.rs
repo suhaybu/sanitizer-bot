@@ -1,9 +1,9 @@
-use std::env::var;
-
 use anyhow::{Context as _, Error, Result};
+use libsql::Database;
 use poise::FrameworkOptions;
 use poise::serenity_prelude as serenity;
-use tracing::error;
+use shuttle_runtime::SecretStore;
+use tracing::{debug, error, info};
 
 use config::data::Data;
 
@@ -13,20 +13,47 @@ mod handlers;
 
 pub type Context<'a> = poise::ApplicationContext<'a, Data, Error>;
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    if let Err(err) = run().await {
-        error!("Critical error: {:#}", err);
-        error!("Error details: {:#?}", err);
-        std::process::exit(1);
-    }
-    Ok(())
-}
+#[shuttle_runtime::main]
+async fn main(
+    #[shuttle_turso::Turso(
+        addr = "YOUR_URL_GOES_HERE",    // Replace with your actual Turso database URL
+        token = "{secrets.TURSO_AUTH_TOKEN}"
+    )]
+    database: Database,
+    #[shuttle_runtime::Secrets] secrets: SecretStore,
+) -> shuttle_serenity::ShuttleSerenity {
+    info!("Starting Sanitizer Bot");
 
-async fn run() -> Result<()> {
-    config::setup::init()?;
+    // Initialize database
+    handlers::db::init_database(database);
+    
+    // Setup database tables
+    handlers::db::setup_database()
+        .await
+        .context("Failed to setup database")?;
 
-    let token = var("DISCORD_TOKEN").expect("DISCORD_TOKEN not found in environment");
+    // Perform initial database sync in background (skip if local file mode)
+    tokio::spawn(async {
+        match handlers::db::sync_database().await {
+            Ok(()) => {
+                debug!("Initial database sync completed successfully");
+            }
+            Err(e) => {
+                // Sync not supported in local file mode - this is expected during local development
+                let error_msg = format!("{:#}", e);
+                if error_msg.contains("Sync is not supported") || error_msg.contains("File mode") {
+                    debug!("Database sync skipped (running in local file mode)");
+                } else {
+                    error!("Failed initial database sync: {:?}", e);
+                }
+            }
+        }
+    });
+
+    let token = secrets
+        .get("DISCORD_TOKEN")
+        .context("DISCORD_TOKEN not found in secrets")?;
+
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
@@ -52,12 +79,10 @@ async fn run() -> Result<()> {
         })
         .build();
 
-    let mut client = serenity::ClientBuilder::new(token, intents)
+    let client = serenity::ClientBuilder::new(token, intents)
         .framework(framework)
         .await
         .context("Failed to create Discord client")?;
 
-    client.start().await.context("Failed to start client")?;
-
-    Ok(())
+    Ok(client.into())
 }
