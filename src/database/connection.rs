@@ -1,0 +1,92 @@
+use std::sync::LazyLock;
+
+use anyhow::Context;
+use libsql::{Connection, Database};
+use std::time::Duration;
+use tracing::{debug, info, warn};
+
+static DB: LazyLock<Database> = LazyLock::new(|| {
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async {
+            init_database()
+                .await
+                .expect("Failed to initialized database")
+        })
+    })
+});
+
+pub fn get_connection() -> anyhow::Result<Connection> {
+    // Retry a few times to handle transient lock/availability during startup
+    const MAX_RETRIES: u32 = 5;
+    const INITIAL_DELAY: Duration = Duration::from_millis(100);
+
+    for attempt in 1..=MAX_RETRIES {
+        match DB.connect() {
+            Ok(conn) => return Ok(conn),
+            Err(e) => {
+                if attempt == MAX_RETRIES {
+                    return Err(e)
+                        .context("Failed to get database connection after multiple retries.");
+                }
+
+                let delay = INITIAL_DELAY * 2_u32.pow(attempt - 1);
+                warn!(
+                    attempt,
+                    delay_ms = delay.as_millis(),
+                    "Database connection failed, retrying"
+                );
+                std::thread::sleep(delay);
+            }
+        }
+    }
+    unreachable!("retry loop must return or error out")
+}
+
+pub async fn sync_database() -> anyhow::Result<()> {
+    debug!("Syncing database with remote");
+    DB.sync()
+        .await
+        .context("Failed to sync database with remote")?;
+    debug!("Database sync completed");
+    Ok(())
+}
+
+async fn init_database() -> anyhow::Result<Database> {
+    let url = std::env::var("TURSO_DATABASE_URL").context("TURSO_DATABASE_URL must be set")?;
+    let auth_token = std::env::var("TURSO_AUTH_TOKEN").context("TURSO_AUTH_TOKEN must be set")?;
+
+    info!("Initializing Turso Embedded Replica database");
+
+    let db = libsql::Builder::new_remote_replica("local.db", url, auth_token)
+        .build()
+        .await
+        .context("Failed to build database connection")?;
+
+    let conn = db.connect().context("Failed to connect to the database")?;
+
+    create_tables(&conn)
+        .await
+        .context("Failed to create database tables")?;
+
+    Ok(db)
+}
+
+async fn create_tables(conn: &Connection) -> anyhow::Result<()> {
+    debug!("Ensuring database schema exists");
+
+    let create_sanitizer_table = r#"
+        CREATE TABLE IF NOT EXISTS server_configs (
+            guild_id INTEGER PRIMARY KEY,
+            sanitizer_mode INTEGER NOT NULL DEFAULT 0,
+            delete_permission INTEGER NOT NULL DEFAULT 0,
+            hide_original_embed BOOLEAN NOT NULL DEFAULT true
+        )
+    "#;
+
+    conn.execute(create_sanitizer_table, ())
+        .await
+        .context("Failed to create server_configs table")?;
+
+    debug!("Database schema ensured");
+    Ok(())
+}
