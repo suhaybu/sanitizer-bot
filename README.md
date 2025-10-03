@@ -4,9 +4,9 @@
 
 Sanitizer is a simple bot that uses regex to identify links for social platforms and replaces them with discord embed friendly links that allows you to view the content of the link without ever having to leave the discord app. Making peoples lives easier one step at a time! :)
 
-The bot is developed using the `twilight` library. You can view their GitHub repo [here](https://github.com/twilight-rs/twilight).
+The bot is developed using the `twilight` library. You can view their GitHub repo [here](https://github.com/twilight-rs/twilight). You can add the Sanitizer bot to your server or install it as a user app from [here](https://discord.com/oauth2/authorize?client_id=1197778683113513081).
 
-This project was first written in Python and can be found [here](https://github.com/Suhaybu/sanitizer-bot-py).
+This project was first written in Python and that version can be found [here](https://github.com/Suhaybu/sanitizer-bot-py).
 
 ## Features
 
@@ -19,7 +19,13 @@ This project was first written in Python and can be found [here](https://github.
 
 ## Setup
 
-1. Create a `.env` file in the project root or add the following environment variables:
+To host your own instance on Shuttle, follow along. This project is not affiliated or sponsored by Shuttle. This setup assumes you have Rust installed on your machine.
+
+0. Optional: Create an account on Shuttle [here](https://www.shuttle.dev/), and then follow the documentation for setting up the Shuttle cli [here](https://docs.shuttle.dev/getting-started/installation).
+
+1. Clone this repository.
+
+2. Rename `Secrets.dev.toml.example` to `Secrets.toml` in the project root and update the following variables with the following:
 
 | Variable | Description | Where to get it |
 |----------|-------------|-----------------|
@@ -27,14 +33,7 @@ This project was first written in Python and can be found [here](https://github.
 | `TURSO_DATABASE_URL` | Database URL for storing server configurations | [Turso Dashboard](https://turso.tech/) |
 | `TURSO_AUTH_TOKEN` | Authentication token for Turso database access | [Turso Dashboard](https://turso.tech/) |
 
-2. Download the release compatible with your OS and run it!
-
-3. Optionally, if you wish to build it yourself instead:
-```fish
-git clone https://github.com/suhaybu/sanitizer-bot
-cd /sanitizer-bot
-cargo run --release
-```
+3. Deploy the code using ```cargo shuttle deploy```
 
 ## Usage
 
