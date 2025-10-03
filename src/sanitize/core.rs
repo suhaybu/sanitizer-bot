@@ -176,7 +176,7 @@ impl UrlProcessor {
                 ))
             }
             Platform::TikTok => Some(format!(
-                "[via {}]({})",
+                "[Post via {}]({})",
                 self.platform.display_name(),
                 clean_url
             )),
@@ -189,7 +189,7 @@ impl UrlProcessor {
                     clean_url
                 )),
                 None => Some(format!(
-                    "[via {}]({})",
+                    "[Post via {}]({})",
                     self.platform.display_name(),
                     clean_url
                 )),
