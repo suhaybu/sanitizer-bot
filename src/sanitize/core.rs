@@ -147,6 +147,7 @@ impl UrlProcessor {
                 );
 
                 self.clean_url = Some(clean_url);
+                self.username = Some(username.to_string());
             }
         }
 
