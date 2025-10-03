@@ -32,3 +32,9 @@ twilight-model = { git = "https://github.com/twilight-rs/twilight", rev = "9da00
 twilight-util = { git = "https://github.com/twilight-rs/twilight", rev = "9da0012e490492654169a7440f339cdd46d1dbe8", features = [
   "builder",
 ] }
+
+[profile.release]
+strip = true
+lto = "fat"
+codegen-units = 1
+opt-level = 3
