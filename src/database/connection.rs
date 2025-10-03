@@ -1,78 +1,76 @@
-use std::sync::LazyLock;
+use std::sync::OnceLock;
 
 use anyhow::Context;
 use libsql::{Connection, Database};
-use std::time::Duration;
-use tracing::{debug, info, warn};
 
-static DB: LazyLock<Database> = LazyLock::new(|| {
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            init_database()
-                .await
-                .expect("Failed to initialized database")
-        })
-    })
-});
+static DB: OnceLock<Database> = OnceLock::new();
 
-pub fn get_connection() -> anyhow::Result<Connection> {
-    // Retry a few times to handle transient lock/availability during startup
-    const MAX_RETRIES: u32 = 5;
-    const INITIAL_DELAY: Duration = Duration::from_millis(100);
+pub async fn setup_database(database: Database) -> anyhow::Result<()> {
+    DB.set(database)
+        .map_err(|_| anyhow::anyhow!("Database already initialized"))?;
 
-    for attempt in 1..=MAX_RETRIES {
-        match DB.connect() {
-            Ok(conn) => return Ok(conn),
-            Err(e) => {
-                if attempt == MAX_RETRIES {
-                    return Err(e)
-                        .context("Failed to get database connection after multiple retries.");
-                }
+    tracing::info!("Database initialized successfully");
 
-                let delay = INITIAL_DELAY * 2_u32.pow(attempt - 1);
-                warn!(
-                    attempt,
-                    delay_ms = delay.as_millis(),
-                    "Database connection failed, retrying"
-                );
-                std::thread::sleep(delay);
-            }
-        }
-    }
-    unreachable!("retry loop must return or error out")
-}
-
-pub async fn sync_database() -> anyhow::Result<()> {
-    debug!("Syncing database with remote");
-    DB.sync()
-        .await
-        .context("Failed to sync database with remote")?;
-    debug!("Database sync completed");
-    Ok(())
-}
-
-async fn init_database() -> anyhow::Result<Database> {
-    let url = std::env::var("TURSO_DATABASE_URL").context("TURSO_DATABASE_URL must be set")?;
-    let auth_token = std::env::var("TURSO_AUTH_TOKEN").context("TURSO_AUTH_TOKEN must be set")?;
-
-    info!("Initializing Turso Embedded Replica database");
-
-    let db = libsql::Builder::new_remote_replica("local.db", url, auth_token)
-        .build()
-        .await
-        .context("Failed to build database connection")?;
-
-    let conn = db.connect().context("Failed to connect to the database")?;
+    let conn = get_connection().context("Failed to get database connection")?;
 
     create_tables(&conn)
         .await
         .context("Failed to create database tables")?;
 
-    Ok(db)
+    tokio::spawn(async {
+        let mut delay = std::time::Duration::from_millis(250);
+        for attempt in 1..=3 {
+            match sync_database().await {
+                Ok(()) => {
+                    tracing::debug!(
+                        "Initial database sync completed successfully (attempt {})",
+                        attempt
+                    );
+                    return;
+                }
+                Err(e) => {
+                    tracing::debug!(
+                        "Initial database sync failed (attempt {}), retrying after {:?}",
+                        attempt,
+                        delay
+                    );
+                    tokio::time::sleep(delay).await;
+                    delay *= 2;
+                    if attempt == 3 {
+                        tracing::error!("Failed initial database sync after retries: {:?}", e);
+                    }
+                }
+            }
+        }
+    });
+
+    Ok(())
+}
+
+pub fn get_connection() -> anyhow::Result<Connection> {
+    let db = DB.get().context("Database not initialized")?;
+    db.connect().context("Failed to get database connection")
+}
+
+pub async fn sync_database() -> anyhow::Result<()> {
+    tracing::debug!("Syncing database with remote");
+    let db = DB.get().context("Database not initialized")?;
+
+    match db.sync().await {
+        Ok(_) => {
+            tracing::debug!("Database sync completed");
+            Ok(())
+        }
+        Err(e) if e.to_string().contains("Sync is not supported") => {
+            tracing::debug!("Skipping sync - running in local mode");
+            Ok(())
+        }
+        Err(e) => Err(e).context("Failed to sync database with remote"),
+    }
 }
 
 async fn create_tables(conn: &Connection) -> anyhow::Result<()> {
-    debug!("Ensuring database schema exists");
+    tracing::debug!("Ensuring database schema exists");
 
     let create_sanitizer_table = r#"
         CREATE TABLE IF NOT EXISTS server_configs (
@@ -87,6 +85,6 @@ async fn create_tables(conn: &Connection) -> anyhow::Result<()> {
         .await
         .context("Failed to create server_configs table")?;
 
-    debug!("Database schema ensured");
+    tracing::debug!("Database schema ensured");
     Ok(())
 }

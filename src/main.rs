@@ -4,18 +4,11 @@ mod handlers;
 mod models;
 mod sanitize;
 
-use std::env;
-use std::sync::OnceLock;
 use std::sync::{
-    Arc,
+    Arc, OnceLock,
     atomic::{AtomicBool, Ordering},
 };
 
-use anyhow::Context;
-use time::{UtcOffset, macros::format_description};
-use tracing::{Level, debug, error};
-use tracing_subscriber::filter::EnvFilter;
-use tracing_subscriber::fmt::time::OffsetTime;
 use twilight_gateway::{
     CloseFrame, ConfigBuilder, Event, EventTypeFlags, Intents, Shard, StreamExt as _,
 };
@@ -37,21 +30,54 @@ static BOT_USER_ID: OnceLock<Id<UserMarker>> = OnceLock::new();
 static EMOJI_ID: Id<EmojiMarker> = Id::<EmojiMarker>::new(1206376642042138724);
 // 1265681253340942409
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    if let Err(err) = run().await {
-        error!("Critical error: {:#}", err);
-        error!("Error details: {:#?}", err);
-        std::process::exit(1);
+struct DiscordBot {
+    token: String,
+}
+
+#[shuttle_runtime::async_trait]
+impl shuttle_runtime::Service for DiscordBot {
+    async fn bind(self, _addr: std::net::SocketAddr) -> Result<(), shuttle_runtime::Error> {
+        tokio::select! {
+            result = run_bot(self.token) => {
+                if let Err(e) = result {
+                    tracing::error!("Bot error: {:#}", e);
+                    return Err(shuttle_runtime::Error::Custom(
+                        shuttle_runtime::CustomError::msg(format!("Bot failed: {}", e))
+                    ));
+                }
+            }
+            _ = tokio::signal::ctrl_c() => {
+                tracing::info!("Received shutdown signal");
+            }
+        }
+        Ok(())
     }
-    Ok(())
+}
+
+#[shuttle_runtime::main]
+async fn main(
+    #[shuttle_runtime::Secrets] secrets: shuttle_runtime::SecretStore,
+    #[shuttle_turso::Turso(
+        addr = "{secrets.TURSO_DATABASE_URL}",
+        token = "{secrets.TURSO_AUTH_TOKEN}"
+    )]
+    database: libsql::Database,
+) -> Result<DiscordBot, shuttle_runtime::Error> {
+    database::setup_database(database)
+        .await
+        .map_err(|_| shuttle_runtime::Error::Database("Failed to setup database".to_string()))?;
+
+    let token = secrets.get("DISCORD_TOKEN").ok_or_else(|| {
+        shuttle_runtime::Error::Custom(shuttle_runtime::CustomError::msg(
+            "DISCORD_TOKEN not found in secrets",
+        ))
+    })?;
+
+    Ok(DiscordBot { token })
 }
 
 /// Runner logic that spins the bot up.
-async fn run() -> anyhow::Result<()> {
-    prerun_init().await?;
-
-    let token = env::var("DISCORD_TOKEN").context("DISCORD_TOKEN environment variable not set")?;
+async fn run_bot(token: String) -> anyhow::Result<()> {
     let intents = Intents::GUILD_MESSAGES
         | Intents::DIRECT_MESSAGES
         | Intents::MESSAGE_CONTENT
@@ -135,61 +161,4 @@ async fn shard_runner(mut shard: Shard, client: Arc<Client>) {
         tracing::debug!(kind = ?event.kind(), shard = ?shard.id().number(), "received event");
         tokio::spawn(handle_event(event, client.clone()));
     }
-}
-
-/// Pre-run initialization sequence for the bot.
-async fn prerun_init() -> anyhow::Result<()> {
-    let _ = dotenvy::dotenv();
-
-    // Initialize logging with tracing.
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(Level::INFO.as_str()));
-
-    let time_format = format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]");
-    let timer = OffsetTime::new(UtcOffset::UTC, time_format);
-
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_target(false)
-        .with_timer(timer)
-        .compact()
-        .init();
-
-    debug!("Logging initialized");
-    // Warm up DB and drop the connection before syncing to avoid lock contention.
-    {
-        let _ = database::get_connection()?;
-    }
-
-    // Perform initial database sync with small backoff to avoid startup races.
-    tokio::spawn(async {
-        let mut delay = std::time::Duration::from_millis(250);
-        let mut last_err: Option<anyhow::Error> = None;
-        // Will retry initial database sync 3 times.
-        for attempt in 1..=3 {
-            match database::sync_database().await {
-                Ok(()) => {
-                    debug!(
-                        "Initial database sync completed successfully (attempt {})",
-                        attempt
-                    );
-                    return;
-                }
-                Err(e) => {
-                    last_err = Some(e);
-                    debug!(
-                        "Initial database sync failed (attempt {}), retrying after {:?}",
-                        attempt, delay
-                    );
-                    tokio::time::sleep(delay).await;
-                    delay *= 2;
-                }
-            }
-        }
-        if let Some(e) = last_err {
-            error!("Failed initial database sync after retries: {:?}", e);
-        }
-    });
-
-    Ok(())
 }

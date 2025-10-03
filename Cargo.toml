@@ -21,10 +21,9 @@ tracing-subscriber = { version = "0.3", features = [
 ] }
 time = { version = "0.3", features = ["macros"] }
 
-# twilight-gateway = "0.16"
-# twilight-http = "0.16"
-# twilight-model = "0.16"
-# twilight-util = { version = "0.16", features = ["builder"] }
+# Shuttle
+shuttle-runtime = "0.57"
+shuttle-turso = "0.57"
 
 # ComponentsV2 PR
 twilight-gateway = { git = "https://github.com/twilight-rs/twilight", rev = "9da0012e490492654169a7440f339cdd46d1dbe8" }
