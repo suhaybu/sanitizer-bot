@@ -19,7 +19,7 @@ This project was first written in Python and that version can be found [here](ht
 
 ## Setup
 
-To host your own instance on Shuttle, follow along. This project is not affiliated or sponsored by Shuttle. This setup assumes you have Rust installed on your machine.
+To host your own instance of the bot on Shuttle, follow along. This project is not affiliated or sponsored by Shuttle, and assumes you have Rust installed on your machine.
 
 0. Optional: Create an account on Shuttle [here](https://www.shuttle.dev/), and then follow the documentation for setting up the Shuttle cli [here](https://docs.shuttle.dev/getting-started/installation).
 
