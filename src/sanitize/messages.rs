@@ -3,7 +3,7 @@ use twilight_http::{Client, request::channel::reaction::RequestReactionType};
 use twilight_model::channel::{
     Message,
     message::{
-        Component, EmojiReactionType, MessageFlags, MessageType,
+        AllowedMentions, Component, EmojiReactionType, MessageFlags, MessageType,
         component::{ActionRow, Button, ButtonStyle},
     },
 };
@@ -53,6 +53,7 @@ pub async fn process_message(
         .content(&output)
         .flags(MessageFlags::SUPPRESS_NOTIFICATIONS)
         .reply(message.id)
+        .allowed_mentions(Some(&AllowedMentions::default()))
         .await?
         .model() // Converts Response<Message> -> Message
         .await?;
