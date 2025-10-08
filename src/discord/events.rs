@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use anyhow::{Context, Ok};
+use anyhow::Context;
 use twilight_gateway::Event;
 use twilight_http::Client;
 use twilight_model::application::interaction::application_command::CommandData;
