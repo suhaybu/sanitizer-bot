@@ -1,8 +1,5 @@
-mod commands;
-mod database;
-mod handlers;
-mod models;
-mod sanitize;
+mod discord;
+mod utils;
 
 use std::sync::{
     Arc, OnceLock,
@@ -20,7 +17,7 @@ use twilight_model::gateway::{
 use twilight_model::id::Id;
 use twilight_model::id::marker::{EmojiMarker, UserMarker};
 
-use crate::handlers::handle_event;
+use crate::discord::{commands, handle_event};
 
 // Flag that can be checked by any part of the program.
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
@@ -63,7 +60,7 @@ async fn main(
     )]
     database: libsql::Database,
 ) -> Result<DiscordBot, shuttle_runtime::Error> {
-    database::setup_database(database)
+    utils::database::setup_database(database)
         .await
         .map_err(|_| shuttle_runtime::Error::Database("Failed to setup database".to_string()))?;
 

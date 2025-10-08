@@ -26,8 +26,8 @@ use twilight_util::builder::{
 };
 
 use crate::{
-    database::ServerConfig,
-    models::{DeletePermission, HideOriginalEmbed, SanitizerMode, SettingsMenuType},
+    discord::models::{DeletePermission, HideOriginalEmbed, SanitizerMode, SettingsMenuType},
+    utils::database::ServerConfig,
 };
 
 pub struct SettingsCommand;

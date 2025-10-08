@@ -1,8 +1,8 @@
 //! Stores business logic for commands
 
-mod credits;
-mod sanitize;
-mod settings;
+pub mod credits;
+pub mod sanitize;
+pub mod settings;
 
 pub use credits::CreditsCommand;
 pub use sanitize::SanitizeCommand;

@@ -10,9 +10,9 @@ use twilight_model::channel::{
 
 use crate::{
     BOT_USER_ID,
-    database::ServerConfig,
-    models::{DeletePermission, SanitizerMode},
-    sanitize::{UrlProcessor, core::Platform},
+    discord::models::{DeletePermission, SanitizerMode},
+    utils::database::ServerConfig,
+    utils::sanitize::{UrlProcessor, core::Platform},
 };
 
 /// Converts the URL in a message if there is a valid URL.

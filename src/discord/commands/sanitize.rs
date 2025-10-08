@@ -13,7 +13,7 @@ use twilight_model::{
 };
 use twilight_util::builder::command::CommandBuilder;
 
-use crate::sanitize::UrlProcessor;
+use crate::utils::sanitize::UrlProcessor;
 
 pub struct SanitizeCommand;
 

@@ -16,10 +16,10 @@ use twilight_model::http::interaction::{InteractionResponse, InteractionResponse
 use twilight_util::builder::InteractionResponseDataBuilder;
 use twilight_util::builder::message::{ContainerBuilder, TextDisplayBuilder};
 
-use crate::commands;
-use crate::database::ServerConfig;
-use crate::models::{DeletePermission, SanitizerMode, SettingsMenuType};
-use crate::sanitize;
+use crate::discord::commands;
+use crate::discord::models::{DeletePermission, SanitizerMode, SettingsMenuType};
+use crate::utils::database::ServerConfig;
+use crate::utils::sanitize;
 
 /// Handles all types of incomming events from Discord.
 pub async fn handle_event(event: Event, client: Arc<Client>) {

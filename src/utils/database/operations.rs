@@ -3,7 +3,7 @@ use libsql::params;
 use serde::{Deserialize, Serialize};
 
 use super::connection::get_connection;
-use crate::models::{DeletePermission, SanitizerMode};
+use crate::discord::models::{DeletePermission, SanitizerMode};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct ServerConfig {
