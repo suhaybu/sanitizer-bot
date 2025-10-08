@@ -44,10 +44,11 @@ pub async fn handle_event(event: Event, client: Arc<Client>) {
             }
         }
         Event::ReactionAdd(ctx) => {
-            // Early exit if reaction is by bot.
+            // Early exit if reaction is by bot or not in a guild.
             if crate::BOT_USER_ID
                 .get()
                 .is_some_and(|&bot_id| bot_id == ctx.0.user_id)
+                || ctx.0.guild_id.is_none()
             {
                 return;
             }
