@@ -65,7 +65,7 @@ pub async fn handle_event(event: Event, client: Arc<Client>) {
 async fn handle_reaction_add(reaction: GatewayReaction, client: &Client) -> anyhow::Result<()> {
     // Exits early if reaction is not in a guild. This exit should never happen.
     let Some(guild_id) = reaction.guild_id else {
-        return Ok(());
+        anyhow::bail!("ReactionAdd is not in a guild.")
     };
 
     let reaction_emoji_id = match &reaction.emoji {
@@ -74,8 +74,7 @@ async fn handle_reaction_add(reaction: GatewayReaction, client: &Client) -> anyh
     };
 
     if reaction_emoji_id == crate::EMOJI_ID {
-        let guild_id: u64 = guild_id.into();
-        let server_config = ServerConfig::get_or_default(guild_id).await?;
+        let server_config = ServerConfig::get_or_default(guild_id.get()).await?;
         let message = client
             .message(reaction.channel_id, reaction.message_id)
             .await?
@@ -199,6 +198,7 @@ async fn handle_delete_button(interaction: &Interaction, client: &Client) -> any
         .model()
         .await?;
 
+    // Early exit should not happen. Delete button is only to be created in guild context.
     let Some(guild_id) = interaction.guild_id else {
         anyhow::bail!("Interaction missing guild_id")
     };
