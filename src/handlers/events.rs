@@ -3,19 +3,22 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Ok};
-use tracing::debug;
 use twilight_gateway::Event;
 use twilight_http::Client;
 use twilight_model::application::interaction::application_command::CommandData;
 use twilight_model::application::interaction::message_component::MessageComponentInteractionData;
 use twilight_model::application::interaction::{Interaction, InteractionData};
 use twilight_model::channel::Message;
-use twilight_model::channel::message::MessageType;
+use twilight_model::channel::message::{Component, MessageFlags, MessageType};
 use twilight_model::gateway::GatewayReaction;
+use twilight_model::guild::Permissions;
+use twilight_model::http::interaction::{InteractionResponse, InteractionResponseType};
+use twilight_util::builder::InteractionResponseDataBuilder;
+use twilight_util::builder::message::{ContainerBuilder, TextDisplayBuilder};
 
 use crate::commands;
 use crate::database::ServerConfig;
-use crate::models::{SanitizerMode, SettingsMenuType};
+use crate::models::{DeletePermission, SanitizerMode, SettingsMenuType};
 use crate::sanitize;
 
 /// Handles all types of incomming events from Discord.
@@ -91,8 +94,7 @@ async fn handle_on_message(message: Message, client: &Client) -> anyhow::Result<
         sanitize::process_message(&message, client, None).await?;
         return Ok(());
     };
-    let guild_id: u64 = guild_id.into();
-    let server_config = ServerConfig::get_or_default(guild_id).await?;
+    let server_config = ServerConfig::get_or_default(guild_id.get()).await?;
 
     match server_config.sanitizer_mode {
         SanitizerMode::Automatic => {
@@ -123,26 +125,26 @@ async fn handle_on_message(message: Message, client: &Client) -> anyhow::Result<
 /// Handles twilight_gateway::Event::InteractionCreate events.
 async fn handle_interaction(mut interaction: Interaction, client: &Client) -> anyhow::Result<()> {
     let Some(data) = interaction.data.take() else {
-        debug!("Ignoring interaction with no data");
+        tracing::debug!("Ignoring interaction with no data");
         return Ok(());
     };
 
     match data {
         // Handles command invocations
         InteractionData::ApplicationCommand(data) => {
-            debug!("Recieved ApplicationCommand event with name: {}", data.name);
+            tracing::debug!("Recieved ApplicationCommand event with name: {}", data.name);
             handle_app_command(data.name.as_str(), &interaction, client, &data).await
         }
         // Handles component invocations
         InteractionData::MessageComponent(data) => {
-            debug!(
+            tracing::debug!(
                 "Recieved MessageComponent event with custom_id: {}",
                 data.custom_id
             );
             handle_component(&data, &interaction, client).await
         }
         _ => {
-            debug!("Ignoring unknown interaction type");
+            tracing::debug!("Ignoring unknown interaction type");
 
             Ok(())
         }
@@ -172,9 +174,123 @@ async fn handle_component(
     interaction: &Interaction,
     client: &Client,
 ) -> anyhow::Result<()> {
-    let menu_type = data
-        .custom_id
-        .parse::<SettingsMenuType>()
-        .with_context(|| format!("Unknown component: {}", data.custom_id))?;
-    commands::SettingsCommand::handle_component(interaction, menu_type, data, client).await
+    match data.custom_id.as_str() {
+        "delete" => handle_delete_button(interaction, client).await,
+        _ => {
+            let menu_type = data
+                .custom_id
+                .parse::<SettingsMenuType>()
+                .with_context(|| format!("Unknown component: {}", data.custom_id))?;
+            commands::SettingsCommand::handle_component(interaction, menu_type, data, client).await
+        }
+    }
+}
+
+async fn handle_delete_button(interaction: &Interaction, client: &Client) -> anyhow::Result<()> {
+    let Some(ref bot_message) = interaction.message else {
+        tracing::debug!("Delete button pressed but no message found");
+        return Ok(());
+    };
+
+    let user_message = client
+        .message(bot_message.channel_id, bot_message.id)
+        .await?
+        .model()
+        .await?;
+
+    let Some(guild_id) = interaction.guild_id else {
+        anyhow::bail!("Interaction missing guild_id")
+    };
+    let server_config = ServerConfig::get_or_default(guild_id.get()).await?;
+
+    if server_config.delete_permission == DeletePermission::Disabled {
+        tracing::debug!("Early exit: Delete button is disabled in server config");
+        return Ok(());
+    }
+
+    let interaction_user_id = interaction
+        .member
+        .as_ref()
+        .and_then(|member| member.user.as_ref().map(|user| user.id))
+        .or_else(|| interaction.user.as_ref().map(|user| user.id))
+        .ok_or_else(|| anyhow::anyhow!("User ID could not be found in interaction."))?;
+
+    let user_has_permission = match server_config.delete_permission {
+        DeletePermission::Everyone => true,
+        DeletePermission::Disabled => false,
+        DeletePermission::AuthorAndMods => {
+            let author_id = user_message
+                .referenced_message
+                .as_ref()
+                .map(|msg| msg.author.id);
+
+            let is_author = author_id.map_or(false, |author_id| author_id == interaction_user_id);
+
+            let has_manage_message = interaction
+                .member
+                .as_ref()
+                .and_then(|m| m.permissions)
+                .map_or(false, |perms| perms.contains(Permissions::MANAGE_MESSAGES));
+
+            is_author || has_manage_message
+        }
+    };
+
+    // Early exit and a message to the user if user has insufficient permissions.
+    if !user_has_permission {
+        tracing::debug!(
+            "User {} does not have permission to delete this message.",
+            interaction_user_id
+        );
+
+        let container = ContainerBuilder::new()
+            .spoiler(false)
+            .component(
+                TextDisplayBuilder::new("You do not have permission to delete this message")
+                    .build(),
+            )
+            .build();
+        let data = InteractionResponseDataBuilder::new()
+            .components([Component::Container(container)])
+            .flags(MessageFlags::IS_COMPONENTS_V2 | MessageFlags::EPHEMERAL)
+            .build();
+        let response = InteractionResponse {
+            kind: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(data),
+        };
+
+        client
+            .interaction(interaction.application_id)
+            .create_response(interaction.id, &interaction.token, &response)
+            .await?;
+
+        return Ok(());
+    };
+
+    // Delete bot's response.
+    client
+        .delete_message(bot_message.channel_id, bot_message.id)
+        .await?;
+    tracing::debug!(
+        "Deleted bot message {} in channel {}",
+        bot_message.id,
+        bot_message.channel_id
+    );
+
+    if server_config.hide_original_embed {
+        let referenced_message = user_message
+            .referenced_message
+            .as_ref()
+            .context("No referenced message found to unsuppress")?;
+
+        if let Err(e) = client
+            .update_message(referenced_message.channel_id, referenced_message.id)
+            .flags(MessageFlags::empty())
+            .await
+        {
+            tracing::warn!("Failed to unsuppress original message embed: {:?}", e);
+        }
+    }
+
+    Ok(())
 }
