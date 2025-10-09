@@ -17,7 +17,10 @@ use twilight_model::gateway::{
 use twilight_model::id::Id;
 use twilight_model::id::marker::{EmojiMarker, UserMarker};
 
-use crate::discord::{commands, handle_event};
+use crate::{
+    discord::{commands, handle_event},
+    utils::ConfigCache,
+};
 
 // Flag that can be checked by any part of the program.
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
@@ -26,6 +29,7 @@ static BOT_USER_ID: OnceLock<Id<UserMarker>> = OnceLock::new();
 // Custom Emoji ID
 static EMOJI_ID: Id<EmojiMarker> = Id::<EmojiMarker>::new(1206376642042138724);
 // 1265681253340942409
+static CONFIG_CACHE: OnceLock<ConfigCache> = OnceLock::new();
 
 struct DiscordBot {
     token: String,
@@ -60,7 +64,7 @@ async fn main(
     )]
     database: libsql::Database,
 ) -> Result<DiscordBot, shuttle_runtime::Error> {
-    utils::database::setup_database(database)
+    utils::setup_database(database)
         .await
         .map_err(|_| shuttle_runtime::Error::Database("Failed to setup database".to_string()))?;
 
@@ -108,6 +112,12 @@ async fn run_bot(token: String) -> anyhow::Result<()> {
         .set(bot.id)
         .expect("BOT_USER_ID already initialized");
     tracing::info!("{} online with ID: {}", bot.name, bot.id);
+
+    // Initialize cache
+    CONFIG_CACHE
+        .set(ConfigCache::new())
+        .expect("CONFIG_CACHE already initialized");
+    tracing::info!("Config cache initialized");
 
     // Start gateway shards.
     let shards =

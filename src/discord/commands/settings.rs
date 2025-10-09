@@ -27,7 +27,7 @@ use twilight_util::builder::{
 
 use crate::{
     discord::models::{DeletePermission, HideOriginalEmbed, SanitizerMode, SettingsMenuType},
-    utils::database::ServerConfig,
+    utils::{ServerConfig, config_cache},
 };
 
 pub struct SettingsCommand;
@@ -51,7 +51,7 @@ impl SettingsCommand {
         };
 
         // Get current server configuration
-        let config = ServerConfig::get_or_default(guild_id.get()).await?;
+        let config = config_cache().get_or_fetch(guild_id.get()).await?;
 
         let settings_container = Self::construct_container(&config);
         let data = InteractionResponseDataBuilder::new()
@@ -92,7 +92,8 @@ impl SettingsCommand {
         tracing::debug!("Selected value from dropdown: '{}'", selected_value);
         tracing::debug!("Menu type: {:?}", menu_type);
 
-        let mut config = ServerConfig::get_or_default(guild_id.get()).await?;
+        let cache = config_cache();
+        let mut config = cache.get_or_fetch(guild_id.get()).await?;
 
         // Update the appropriate setting
         match menu_type {
@@ -114,7 +115,7 @@ impl SettingsCommand {
             }
         }
 
-        config.save().await?;
+        cache.update_config(guild_id.get(), config).await?;
 
         let confirmation_msg = match menu_type {
             SettingsMenuType::SanitizerMode => "✅ Sanitizer Mode updated".to_string(),

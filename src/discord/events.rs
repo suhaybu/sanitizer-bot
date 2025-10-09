@@ -18,8 +18,7 @@ use twilight_util::builder::message::{ContainerBuilder, TextDisplayBuilder};
 
 use crate::discord::commands;
 use crate::discord::models::{DeletePermission, SanitizerMode, SettingsMenuType};
-use crate::utils::database::ServerConfig;
-use crate::utils::sanitize;
+use crate::utils::{ServerConfig, config_cache, sanitize};
 
 /// Handles all types of incomming events from Discord.
 pub async fn handle_event(event: Event, client: Arc<Client>) {
@@ -94,7 +93,7 @@ async fn handle_on_message(message: Message, client: &Client) -> anyhow::Result<
         sanitize::process_message(&message, client, None).await?;
         return Ok(());
     };
-    let server_config = ServerConfig::get_or_default(guild_id.get()).await?;
+    let server_config = config_cache().get_or_fetch(guild_id.get()).await?;
 
     match server_config.sanitizer_mode {
         SanitizerMode::Automatic => {
