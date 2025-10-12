@@ -82,7 +82,9 @@ async fn main(
                 "EMOJI_ID not found or invalid",
             ))
         })?;
-    let _ = EMOJI_ID.set(Id::<EmojiMarker>::new(emoji_id));
+    EMOJI_ID
+        .set(Id::<EmojiMarker>::new(emoji_id))
+        .expect("EMOJI_ID already initialized");
 
     Ok(DiscordBot { token })
 }
