@@ -72,7 +72,7 @@ async fn handle_reaction_add(reaction: GatewayReaction, client: &Client) -> anyh
         _ => return Ok(()),
     };
 
-    if reaction_emoji_id == crate::EMOJI_ID {
+    if reaction_emoji_id == crate::EMOJI_ID.get().unwrap().to_owned() {
         let server_config = ServerConfig::get_or_default(guild_id.get()).await?;
         let message = client
             .message(reaction.channel_id, reaction.message_id)

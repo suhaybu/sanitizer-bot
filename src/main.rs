@@ -26,9 +26,9 @@ use crate::{
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 // Gets set during initialization of the bot.
 static BOT_USER_ID: OnceLock<Id<UserMarker>> = OnceLock::new();
-// Custom Emoji ID
-static EMOJI_ID: Id<EmojiMarker> = Id::<EmojiMarker>::new(1206376642042138724);
-// 1265681253340942409
+// Custom Emoji ID.
+static EMOJI_ID: OnceLock<Id<EmojiMarker>> = OnceLock::new();
+// Cache for server config.
 static CONFIG_CACHE: OnceLock<ConfigCache> = OnceLock::new();
 
 struct DiscordBot {
@@ -73,6 +73,16 @@ async fn main(
             "DISCORD_TOKEN not found in secrets",
         ))
     })?;
+
+    let emoji_id = secrets
+        .get("EMOJI_ID")
+        .and_then(|s| s.parse::<u64>().ok())
+        .ok_or_else(|| {
+            shuttle_runtime::Error::Custom(shuttle_runtime::CustomError::msg(
+                "EMOJI_ID not found or invalid",
+            ))
+        })?;
+    let _ = EMOJI_ID.set(Id::<EmojiMarker>::new(emoji_id));
 
     Ok(DiscordBot { token })
 }

@@ -73,7 +73,7 @@ pub async fn process_message(
                 message.channel_id,
                 message.id,
                 &RequestReactionType::Custom {
-                    id: crate::EMOJI_ID,
+                    id: crate::EMOJI_ID.get().unwrap().to_owned(),
                     name: Some("Sanitized"),
                 },
             )
@@ -131,7 +131,7 @@ pub async fn add_emote(message: &Message, client: &Client) -> anyhow::Result<()>
             message.channel_id,
             message.id,
             &RequestReactionType::Custom {
-                id: crate::EMOJI_ID,
+                id: crate::EMOJI_ID.get().unwrap().to_owned(),
                 name: Some("Sanitized"),
             },
         )
