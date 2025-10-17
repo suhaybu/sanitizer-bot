@@ -141,11 +141,10 @@ impl SanitizeCommand {
         // For now, a way to handle Twitter responses as non-container.
         match output.1 {
             Some(url) => {
-                let add_delete_button = ctx.is_dm()
-                    || ctx.is_guild()
-                        && ctx.context.is_some_and(|ctx_type| {
-                            ctx_type == InteractionContextType::PrivateChannel
-                        });
+                let add_delete_button = ctx.is_guild()
+                    && ctx
+                        .context
+                        .is_some_and(|ctx_type| ctx_type == InteractionContextType::PrivateChannel);
 
                 let (container, action_row) = Self::construct_response_container(
                     output.0.as_str(),
