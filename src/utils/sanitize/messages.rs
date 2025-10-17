@@ -1,4 +1,3 @@
-use anyhow::Ok;
 use twilight_http::{Client, request::channel::reaction::RequestReactionType};
 use twilight_model::channel::{
     Message,
@@ -11,8 +10,10 @@ use twilight_model::channel::{
 use crate::{
     BOT_USER_ID,
     discord::models::{DeletePermission, SanitizerMode},
-    utils::database::ServerConfig,
-    utils::sanitize::{UrlProcessor, core::Platform},
+    utils::{
+        database::ServerConfig,
+        sanitize::{UrlProcessor, core::Platform},
+    },
 };
 
 /// Converts the URL in a message if there is a valid URL.
@@ -43,19 +44,58 @@ pub async fn process_message(
         None => return Ok(()),
     };
 
+    let original_url = url.get_original_url().expect("Original URL was not found");
     let output = url
         .capture_url()
         .and_then(|captures| captures.format_output())
         .ok_or_else(|| anyhow::anyhow!("Failed to process URL"))?;
 
-    let response = client
+    let mut components = Vec::new();
+    components.push(Component::Button(Button {
+        id: None,
+        custom_id: None,
+        disabled: false,
+        emoji: Some(EmojiReactionType::Unicode {
+            name: "🔗".to_string(),
+        }),
+        label: Some("Open Link".to_string()),
+        style: ButtonStyle::Link,
+        url: Some(original_url),
+        sku_id: None,
+    }));
+
+    // Adds a delete button if config allows it and it's in a guild.
+    if server_config
+        .as_ref()
+        .is_some_and(|config| config.delete_permission != DeletePermission::Disabled)
+    {
+        let delete_emoji = EmojiReactionType::Unicode {
+            name: "🗑️".to_string(),
+        };
+        components.push(Component::Button(Button {
+            id: None,
+            custom_id: Some("delete".to_owned()),
+            disabled: false,
+            emoji: Some(delete_emoji),
+            label: Some("Delete".to_owned()),
+            style: ButtonStyle::Danger,
+            url: None,
+            sku_id: None,
+        }));
+    }
+
+    let components = Component::ActionRow(ActionRow {
+        id: None,
+        components,
+    });
+
+    client
         .create_message(message.channel_id)
         .content(&output)
+        .components(&[components])
         .flags(MessageFlags::SUPPRESS_NOTIFICATIONS)
         .reply(message.id)
         .allowed_mentions(Some(&AllowedMentions::default()))
-        .await?
-        .model() // Converts Response<Message> -> Message
         .await?;
 
     // Early exits if message is not in a server
@@ -77,32 +117,6 @@ pub async fn process_message(
                     name: Some("Sanitized"),
                 },
             )
-            .await?;
-    }
-
-    // Adds a delete button if config allows it.
-    if server_config.delete_permission != DeletePermission::Disabled {
-        let delete_emoji = EmojiReactionType::Unicode {
-            name: "🗑️".to_string(),
-        };
-
-        let components = Component::ActionRow(ActionRow {
-            id: None,
-            components: Vec::from([Component::Button(Button {
-                id: None,
-                custom_id: Some("delete".to_owned()),
-                disabled: false,
-                emoji: Some(delete_emoji),
-                label: Some("Delete".to_owned()),
-                style: ButtonStyle::Danger,
-                url: None,
-                sku_id: None,
-            })]),
-        });
-
-        client
-            .update_message(response.channel_id, response.id)
-            .components(Some(&[components]))
             .await?;
     }
 
