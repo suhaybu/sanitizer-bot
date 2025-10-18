@@ -198,49 +198,6 @@ impl UrlProcessor {
         }
     }
 
-    pub fn format_output_interaction(self) -> Option<(String, Option<String>)> {
-        let clean_url = self.clean_url?;
-
-        match self.platform {
-            Platform::Instagram => {
-                let post_type_display = self
-                    .post_type
-                    .as_ref()
-                    .map(|pt| match pt.to_lowercase().as_str() {
-                        "reels" | "reel" => "Reel",
-                        "p" => "Post",
-                        _ => "Post",
-                    })
-                    .unwrap_or("Post");
-
-                Some((
-                    format!("{} via {}", post_type_display, self.platform.display_name(),),
-                    Some(clean_url),
-                ))
-            }
-            Platform::TikTok => Some((
-                format!("Post via {}", self.platform.display_name(),),
-                Some(clean_url),
-            )),
-
-            Platform::Twitter => match self.username {
-                Some(username) => Some((
-                    format!(
-                        "[@{} via {}]({})",
-                        username,
-                        self.platform.display_name(),
-                        clean_url
-                    ),
-                    None,
-                )),
-                None => Some((
-                    format!("[Post via {}]({})", self.platform.display_name(), clean_url),
-                    None,
-                )),
-            },
-        }
-    }
-
     pub fn get_original_url(&self) -> Option<String> {
         let regex = &INDIVIDUAL_REGEXES[self.platform as usize];
         regex.find(&self.user_input).map(|m| m.as_str().to_string())
