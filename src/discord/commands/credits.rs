@@ -17,6 +17,7 @@ use twilight_util::builder::{
 pub struct CreditsCommand;
 
 impl CreditsCommand {
+    /// Creates /credits command.
     pub fn create_command() -> Command {
         CommandBuilder::new("credits", "Roll the credits! 🎺", CommandType::ChatInput)
             .contexts([
@@ -28,6 +29,7 @@ impl CreditsCommand {
             .build()
     }
 
+    /// Handles responding to command invocation.
     pub async fn handle(ctx: &Interaction, client: &Client) -> anyhow::Result<()> {
         let embed = EmbedBuilder::new().title("Credits 🎺")
          .description("These are all the super cool projects I rely on:\n\

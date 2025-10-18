@@ -33,6 +33,7 @@ use crate::{
 pub struct SettingsCommand;
 
 impl SettingsCommand {
+    /// Creates /settings command.
     pub fn create_command() -> Command {
         CommandBuilder::new(
             "settings",
@@ -44,7 +45,7 @@ impl SettingsCommand {
         .build()
     }
 
-    /// Handles responding to command invocations
+    /// Handles responding to command invocation.
     pub async fn handle(ctx: &Interaction, client: &Client) -> anyhow::Result<()> {
         let Some(guild_id) = ctx.guild_id else {
             bail!("Settings can only be used in guilds!")
@@ -141,7 +142,7 @@ impl SettingsCommand {
         Ok(())
     }
 
-    /// Returns Container embed to be displayed to the user (ComponentsV2)
+    /// Returns Container embed to be displayed to the user (ComponentsV2).
     fn construct_container(config: &ServerConfig) -> Container {
         ContainerBuilder::new()
             .spoiler(false)

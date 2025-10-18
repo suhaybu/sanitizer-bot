@@ -75,6 +75,7 @@ impl SanitizeCommand {
             .build()
     }
 
+    /// Handles responding to command invocation.
     pub async fn handle(
         ctx: &Interaction,
         client: &Client,
@@ -208,6 +209,8 @@ impl SanitizeCommand {
             components: container_components,
         };
 
+    /// Constructs the open link button & Optional<delete button>.
+    fn construct_buttons(original_url: String, add_delete_button: bool) -> Component {
         let mut buttons = vec![Component::Button(Button {
             id: None,
             custom_id: None,
