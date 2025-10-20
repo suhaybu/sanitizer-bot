@@ -195,7 +195,7 @@ impl SettingsCommand {
                                 SanitizerMode::ManualMention.as_ref(),
                             )
                             .default(config.sanitizer_mode == SanitizerMode::ManualMention)
-                            .description("Fix links by mentioning the bot in a message.")
+                            .description("Fix links in messages mentioning the bot.")
                             .emoji(EmojiReactionType::Unicode {
                                 name: "💬".to_string(),
                             })
@@ -203,11 +203,11 @@ impl SettingsCommand {
                         )
                         .option(
                             SelectMenuOptionBuilder::new(
-                                "Manual: Emote + Mention",
+                                "Manual: Mention + Emote",
                                 SanitizerMode::ManualBoth.as_ref(),
                             )
                             .default(config.sanitizer_mode == SanitizerMode::ManualBoth)
-                            .description("Fix links either on emoji reaction or on mention.")
+                            .description("Fix links either if mentioned or on an emoji reaction.")
                             .emoji(EmojiReactionType::Unicode {
                                 name: "🔁".to_string(),
                             })
@@ -246,7 +246,7 @@ impl SettingsCommand {
                                 DeletePermission::AuthorAndMods.as_ref(),
                             )
                             .default(config.delete_permission == DeletePermission::AuthorAndMods)
-                            .description("Author & users that can Manage Messages. (Default)")
+                            .description("Author or users that can Manage Messages. (Default)")
                             .emoji(EmojiReactionType::Unicode {
                                 name: "👥".to_string(),
                             })
@@ -258,7 +258,7 @@ impl SettingsCommand {
                                 DeletePermission::Everyone.as_ref(),
                             )
                             .default(config.delete_permission == DeletePermission::Everyone)
-                            .description("Allow any user to delete the bot response.")
+                            .description("All users, regardless of their permissions.")
                             .emoji(EmojiReactionType::Unicode {
                                 name: "🌐".to_string(),
                             })
@@ -270,7 +270,7 @@ impl SettingsCommand {
                                 DeletePermission::Disabled.as_ref(),
                             )
                             .default(config.delete_permission == DeletePermission::Disabled)
-                            .description("Disable the delete button feature.")
+                            .description("Delete button no longer appears.")
                             .emoji(EmojiReactionType::Unicode {
                                 name: "🚫".to_string(),
                             })
