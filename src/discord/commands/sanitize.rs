@@ -124,17 +124,38 @@ impl SanitizeCommand {
 
         let url = match UrlProcessor::try_new(user_input) {
             Some(url) => url,
-            None => return Ok(()),
+            None => {
+                client
+                    .interaction(ctx.application_id)
+                    .update_response(&ctx.token)
+                    .content(Some(
+                        "The link provided is invalid, or the platform is currently not supported. :(",
+                    ))
+                    .await?;
+                return Ok(());
+            }
         };
 
         let original_url = url
             .get_original_url()
             .expect("Original URL could not be retrieved.");
 
-        let output = url
+        let output = match url
             .capture_url()
             .and_then(|captures| captures.format_output())
-            .ok_or_else(|| anyhow::anyhow!("Failed to process URL"))?;
+        {
+            Some(output) => output,
+            None => {
+                client
+                    .interaction(ctx.application_id)
+                    .update_response(&ctx.token)
+                    .content(Some(
+                        "Oops! For some unknown reason, I was unable to process the URL.",
+                    ))
+                    .await?;
+                return Ok(());
+            }
+        };
 
         let add_delete_button = ctx.is_guild()
             && ctx
