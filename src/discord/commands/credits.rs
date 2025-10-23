@@ -35,7 +35,7 @@ impl CreditsCommand {
          .description("These are all the super cool projects I rely on:\n\
         -  **Twitter**: Thanks to FixTweet's reliable [FxTwitter](https://github.com/FixTweet/FxTwitter) project\n\
         -  **TikTok & Instagram**: Thanks to [kkScript](https://kkscript.com/)\n\
-        -  **Instagram** (Fallback): Powered by the awesome [InstaFix](https://github.com/Wikidepia/InstaFix)\n\
+        -  **Instagram** (Fallback): Powered by the awesome [InstaFix](https://github.com/Wikidepia/InstaFix) project\n\
         -  **Twitch**: Thanks to [FxTwitch](https://github.com/seriaati/fxtwitch)\n\
         -# The code that powers me is publicly sourced [here](https://github.com/suhaybu/sanitizer-bot) on GitHub.\n\
             ")
