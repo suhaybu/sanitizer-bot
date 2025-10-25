@@ -1,6 +1,6 @@
 //! Settings Command: Creates a Settings Container allowing users to configure the bot's behavior.
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use twilight_http::Client;
 use twilight_model::{
     application::{
@@ -48,7 +48,7 @@ impl SettingsCommand {
     /// Handles responding to command invocation.
     pub async fn handle(ctx: &Interaction, client: &Client) -> anyhow::Result<()> {
         let Some(guild_id) = ctx.guild_id else {
-            bail!("Settings can only be used in guilds!")
+            anyhow::bail!("Settings can only be used in guilds!")
         };
 
         // Get current server configuration
@@ -81,7 +81,7 @@ impl SettingsCommand {
         client: &Client,
     ) -> anyhow::Result<()> {
         let Some(guild_id) = ctx.guild_id else {
-            bail!("Settings can only be used in guilds!")
+            anyhow::bail!("Settings can only be used in guilds!")
         };
 
         let selected_value = data
