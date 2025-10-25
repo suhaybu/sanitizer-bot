@@ -1,7 +1,8 @@
 use std::sync::LazyLock;
 
-use anyhow::Context;
+use anyhow::{Context, Ok};
 use regex::{Regex, RegexSet, RegexSetBuilder};
+use scraper::Selector;
 
 // Regex's for capturing urls
 const INSTAGRAM_URL_PATTERN: &str =
@@ -112,7 +113,7 @@ impl UrlProcessor {
         })
     }
 
-    pub fn capture_url(mut self) -> Option<Self> {
+    pub async fn capture_url(mut self) -> Option<Self> {
         let regex = &INDIVIDUAL_REGEXES[self.platform as usize];
         let captures = regex.captures(&self.user_input)?;
 
@@ -140,6 +141,15 @@ impl UrlProcessor {
                     data
                 );
 
+                let username = match self.get_original_url() {
+                    Some(original_url) => Self::get_author(original_url.as_str(), self.platform)
+                        .await
+                        .ok()
+                        .flatten(),
+                    None => None,
+                };
+
+                self.username = username;
                 self.clean_url = Some(clean_url);
             }
             Platform::Twitter => {
@@ -176,6 +186,14 @@ impl UrlProcessor {
                     )
                 };
 
+                let username = match username {
+                    Some(u) => Some(u),
+                    None => Self::get_author(&clean_url, self.platform)
+                        .await
+                        .ok()
+                        .flatten(),
+                };
+
                 self.clean_url = Some(clean_url);
                 self.username = username;
             }
@@ -206,12 +224,7 @@ impl UrlProcessor {
                     clean_url
                 ))
             }
-            Platform::TikTok => Some(format!(
-                "[Post via {}]({})",
-                self.platform.display_name(),
-                clean_url
-            )),
-            Platform::Twitter | Platform::Twitch => match self.username {
+            Platform::TikTok | Platform::Twitter | Platform::Twitch => match self.username {
                 Some(username) => Some(format!(
                     "[@{} via {}]({})",
                     username,
@@ -230,5 +243,62 @@ impl UrlProcessor {
     pub fn get_original_url(&self) -> Option<String> {
         let regex = &INDIVIDUAL_REGEXES[self.platform as usize];
         regex.find(&self.user_input).map(|m| m.as_str().to_string())
+    }
+
+    // Retrieve's the author name by attempting to curl the url and parse the output.
+    async fn get_author(url: &str, platform: Platform) -> anyhow::Result<Option<String>> {
+        let client = reqwest::Client::builder()
+            .user_agent("Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com/)")
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?;
+
+        let author = match platform {
+            Platform::TikTok => {
+                let response = client.get(url).send().await?;
+                let Some(location) = response.headers().get("location") else {
+                    return Ok(None);
+                };
+                let location = location.to_str()?;
+
+                let Some(start) = location.find("/@") else {
+                    return Ok(None);
+                };
+                let Some(end) = location[start + 2..].find("/video/") else {
+                    return Ok(None);
+                };
+
+                if end == 0 {
+                    return Ok(None);
+                }
+
+                Some(location[start + 2..start + 2 + end].to_string())
+            }
+            // Twitter doesn't ever get ran, added for future use.
+            Platform::Twitch | Platform::Twitter => {
+                let html = client.get(url).send().await?.text().await?;
+                let document = scraper::Html::parse_document(&html);
+                let selector_property = match platform {
+                    Platform::Twitch => "og:title",
+                    Platform::Twitter => "twitter:creator",
+                    _ => unreachable!(),
+                };
+
+                let selector = Selector::parse(&format!("meta[property='{}']", selector_property))
+                    .expect("valid CSS selector");
+
+                document
+                    .select(&selector)
+                    .next()
+                    .and_then(|el| el.value().attr("content"))
+                    .map(|content| match platform {
+                        Platform::Twitch => {
+                            content.split(" - ").next().unwrap_or(content).to_string()
+                        }
+                        _ => content.to_string(),
+                    })
+            }
+            _ => None,
+        };
+        Ok(author)
     }
 }

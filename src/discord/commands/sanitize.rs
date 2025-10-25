@@ -144,6 +144,7 @@ impl SanitizeCommand {
 
         let output = match url
             .capture_url()
+            .await
             .and_then(|captures| captures.format_output())
         {
             Some(output) => output,

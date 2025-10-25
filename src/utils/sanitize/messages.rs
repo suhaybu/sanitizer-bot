@@ -47,6 +47,7 @@ pub async fn process_message(
     let original_url = url.get_original_url().expect("Original URL was not found");
     let output = url
         .capture_url()
+        .await
         .and_then(|captures| captures.format_output())
         .ok_or_else(|| anyhow::anyhow!("Failed to process URL"))?;
 
