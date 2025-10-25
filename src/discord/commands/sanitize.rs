@@ -1,3 +1,5 @@
+//! Sanitize Command: Core functionlity, takes a url from the user and attempts to fix the embed.
+
 use anyhow::Context;
 use twilight_http::Client;
 use twilight_model::{
