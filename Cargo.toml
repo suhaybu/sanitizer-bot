@@ -28,11 +28,11 @@ time = { version = "0.3", features = ["macros"] }
 shuttle-runtime = "0.57"
 shuttle-turso = "0.57"
 
-# ComponentsV2 PR
-twilight-gateway = { git = "https://github.com/twilight-rs/twilight", rev = "9da0012e490492654169a7440f339cdd46d1dbe8" }
-twilight-http = { git = "https://github.com/twilight-rs/twilight", rev = "9da0012e490492654169a7440f339cdd46d1dbe8" }
-twilight-model = { git = "https://github.com/twilight-rs/twilight", rev = "9da0012e490492654169a7440f339cdd46d1dbe8" }
-twilight-util = { git = "https://github.com/twilight-rs/twilight", rev = "9da0012e490492654169a7440f339cdd46d1dbe8", features = [
+# Twilight branch: next
+twilight-gateway = { git = "https://github.com/twilight-rs/twilight", rev = "7a0e90f9b40b0ff0671bb36fd2e4452d8e5f249b" }
+twilight-http = { git = "https://github.com/twilight-rs/twilight", rev = "7a0e90f9b40b0ff0671bb36fd2e4452d8e5f249b" }
+twilight-model = { git = "https://github.com/twilight-rs/twilight", rev = "7a0e90f9b40b0ff0671bb36fd2e4452d8e5f249b" }
+twilight-util = { git = "https://github.com/twilight-rs/twilight", rev = "7a0e90f9b40b0ff0671bb36fd2e4452d8e5f249b", features = [
   "builder",
 ] }
 
