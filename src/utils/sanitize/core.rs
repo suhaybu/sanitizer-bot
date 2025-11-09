@@ -122,7 +122,7 @@ impl UrlProcessor {
                 let post_type = captures.name("type")?.as_str();
                 let data = captures.name("data")?.as_str();
                 let clean_url = format!(
-                    "https://{}/{}{}",
+                    "https://www.{}/{}{}",
                     self.platform.replacement_domain(),
                     post_type,
                     data
