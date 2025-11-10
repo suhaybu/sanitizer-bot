@@ -73,6 +73,7 @@ impl Platform {
     pub fn try_detect(input: &str) -> Option<Self> {
         let regex_set = REGEX_SET.as_ref().ok()?;
         let matches = regex_set.matches(input);
+        tracing::debug!("Trying to detect a match in the url.");
 
         matches.iter().next().and_then(|idx| Self::from_index(idx))
     }
@@ -127,6 +128,7 @@ impl UrlProcessor {
 
         match self.platform {
             Platform::Instagram => {
+                tracing::debug!("Successfully matched the platform: Instagram");
                 let post_type = captures.name("type")?.as_str();
                 let data = captures.name("data")?.as_str();
                 let clean_url = format!(
@@ -154,6 +156,7 @@ impl UrlProcessor {
                 self.clean_url = Some(clean_url);
             }
             Platform::TikTok => {
+                tracing::debug!("Successfully matched the platform: TikTok");
                 let subdomain = captures.name("subdomain").map(|m| m.as_str()).unwrap_or("");
                 let data = captures.name("data")?.as_str();
                 let clean_url = format!(
@@ -175,6 +178,7 @@ impl UrlProcessor {
                 self.clean_url = Some(clean_url);
             }
             Platform::Twitter => {
+                tracing::debug!("Successfully matched the platform: Twitter");
                 let username = captures.name("username")?.as_str();
                 let data = captures.name("data")?.as_str();
                 let clean_url = format!(
@@ -188,6 +192,7 @@ impl UrlProcessor {
                 self.username = Some(username.to_string());
             }
             Platform::Twitch => {
+                tracing::debug!("Successfully matched the platform: Twitch");
                 let username = captures.name("username").map(|m| m.as_str().to_string());
                 let data = captures.name("data")?.as_str();
 
@@ -225,6 +230,7 @@ impl UrlProcessor {
     }
 
     pub fn format_output(self) -> Option<String> {
+        tracing::debug!("Attempting to format the final output.");
         let clean_url = self.clean_url?;
 
         match self.platform {
@@ -276,12 +282,14 @@ impl UrlProcessor {
     }
 
     pub fn get_original_url(&self) -> Option<String> {
+        tracing::debug!("Getting original url");
         let regex = &INDIVIDUAL_REGEXES[self.platform as usize];
         regex.find(&self.user_input).map(|m| m.as_str().to_string())
     }
 
     // Retrieve's the author name by attempting to curl the url and parse the output.
     async fn get_author(url: &str, platform: Platform) -> anyhow::Result<Option<String>> {
+        tracing::debug!("Attempting to get author, building reqwest client");
         let client = reqwest::Client::builder()
             .user_agent("Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com/)")
             .redirect(reqwest::redirect::Policy::none())
