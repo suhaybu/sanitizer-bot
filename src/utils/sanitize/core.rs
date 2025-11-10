@@ -7,6 +7,7 @@ use scraper::Selector;
 // Regex's for capturing urls
 const INSTAGRAM_URL_PATTERN: &str =
     r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reels?|p)(?P<data>/[^/\s?]+)";
+const REDDIT_URL_PATTERN: &str = r"(?i)https?://(?P<subdomain>(?:www\.|old\.)?)reddit\.com/(?P<subreddit>r/[^/]+)(?P<data>/\S*)?";
 const TIKTOK_URL_PATTERN: &str =
     r"(?i)https?://(?P<subdomain>(?:\w{1,3}\.)?)(?P<domain>tiktok\.com)(?P<data>/\S*)";
 const TWITTER_URL_PATTERN: &str =
@@ -15,14 +16,16 @@ const TWITCH_URL_PATTERN: &str = r"(?i)https?://(www\.)?(twitch\.tv/(?P<username
 
 const URL_PATTERNS: &[&str] = &[
     INSTAGRAM_URL_PATTERN,
+    REDDIT_URL_PATTERN,
     TIKTOK_URL_PATTERN,
     TWITTER_URL_PATTERN,
     TWITCH_URL_PATTERN,
 ];
 
-static INDIVIDUAL_REGEXES: LazyLock<[Regex; 4]> = LazyLock::new(|| {
+static INDIVIDUAL_REGEXES: LazyLock<[Regex; 5]> = LazyLock::new(|| {
     [
         Regex::new(INSTAGRAM_URL_PATTERN).expect("Valid Instagram regex"),
+        Regex::new(REDDIT_URL_PATTERN).expect("Valid Reddit regex"),
         Regex::new(TIKTOK_URL_PATTERN).expect("Valid TikTok regex"),
         Regex::new(TWITTER_URL_PATTERN).expect("Valid Twitter regex"),
         Regex::new(TWITCH_URL_PATTERN).expect("Valid Twitch regex"),
@@ -32,9 +35,10 @@ static INDIVIDUAL_REGEXES: LazyLock<[Regex; 4]> = LazyLock::new(|| {
 #[derive(Debug, Clone, Copy)]
 pub enum Platform {
     Instagram = 0,
-    TikTok = 1,
-    Twitter = 2,
-    Twitch = 3,
+    Reddit = 1,
+    TikTok = 2,
+    Twitter = 3,
+    Twitch = 4,
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +62,7 @@ static REGEX_SET: LazyLock<anyhow::Result<RegexSet>> = LazyLock::new(|| {
 pub fn contains_url(input: &str) -> bool {
     let input = input.to_lowercase();
     input.contains("instagram.com")
+        || input.contains("reddit.com")
         || input.contains("tiktok.com")
         || input.contains("twitter.com")
         || input.contains("x.com")
@@ -75,6 +80,7 @@ impl Platform {
     pub const fn display_name(&self) -> &'static str {
         match self {
             Self::Instagram => "Instagram",
+            Self::Reddit => "Reddit",
             Self::TikTok => "TikTok",
             Self::Twitter => "Twitter",
             Self::Twitch => "Twitch",
@@ -84,9 +90,10 @@ impl Platform {
     const fn from_index(idx: usize) -> Option<Self> {
         match idx {
             0 => Some(Self::Instagram),
-            1 => Some(Self::TikTok),
-            2 => Some(Self::Twitter),
-            3 => Some(Self::Twitch),
+            1 => Some(Self::Reddit),
+            2 => Some(Self::TikTok),
+            3 => Some(Self::Twitter),
+            4 => Some(Self::Twitch),
             _ => None,
         }
     }
@@ -94,6 +101,7 @@ impl Platform {
     const fn replacement_domain(&self) -> &'static str {
         match self {
             Self::Instagram => "kkinstagram.com",
+            Self::Reddit => "rxddit.com",
             Self::TikTok => "kktiktok.com",
             Self::Twitter => "fxtwitter.com",
             Self::Twitch => "fxtwitch.seria.moe",
@@ -129,6 +137,20 @@ impl UrlProcessor {
                 );
 
                 self.post_type = Some(post_type.to_string());
+                self.clean_url = Some(clean_url);
+            }
+            Platform::Reddit => {
+                tracing::debug!("Successfully matched the platform: Reddit");
+                let subdomain = captures
+                    .name("subdomain")
+                    .map(|m| m.as_str())
+                    .unwrap_or("www.");
+                let subreddit = captures.name("subreddit")?.as_str();
+                let data = captures.name("data")?.as_str();
+
+                let clean_url = format!("https://{}rxddit.com/{}{}", subdomain, subreddit, data);
+
+                self.username = Some(subreddit.into());
                 self.clean_url = Some(clean_url);
             }
             Platform::TikTok => {
@@ -224,6 +246,19 @@ impl UrlProcessor {
                     clean_url
                 ))
             }
+            Platform::Reddit => match self.username {
+                Some(username) => Some(format!(
+                    "[{} via {}]({})",
+                    username,
+                    self.platform.display_name(),
+                    clean_url
+                )),
+                None => Some(format!(
+                    "[Post via {}]({})",
+                    self.platform.display_name(),
+                    clean_url
+                )),
+            },
             Platform::TikTok | Platform::Twitter | Platform::Twitch => match self.username {
                 Some(username) => Some(format!(
                     "[@{} via {}]({})",
