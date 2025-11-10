@@ -10,16 +10,16 @@ const INSTAGRAM_URL_PATTERN: &str =
 const REDDIT_URL_PATTERN: &str = r"(?i)https?://(?P<subdomain>(?:www\.|old\.)?)reddit\.com/(?P<subreddit>r/[^/]+)(?P<data>/\S*)?";
 const TIKTOK_URL_PATTERN: &str =
     r"(?i)https?://(?P<subdomain>(?:\w{1,3}\.)?)(?P<domain>tiktok\.com)(?P<data>/\S*)";
+const TWITCH_URL_PATTERN: &str = r"(?i)https?://(www\.)?(twitch\.tv/(?P<username>\w+)/clip/|clips\.twitch\.tv/)(?P<data>[^?\s]+)";
 const TWITTER_URL_PATTERN: &str =
     r"(?i)https?://(www\.)?(twitter|x)\.com/(?P<username>\w+)(?P<data>/status/[^?\s]*)";
-const TWITCH_URL_PATTERN: &str = r"(?i)https?://(www\.)?(twitch\.tv/(?P<username>\w+)/clip/|clips\.twitch\.tv/)(?P<data>[^?\s]+)";
 
 const URL_PATTERNS: &[&str] = &[
     INSTAGRAM_URL_PATTERN,
     REDDIT_URL_PATTERN,
     TIKTOK_URL_PATTERN,
-    TWITTER_URL_PATTERN,
     TWITCH_URL_PATTERN,
+    TWITTER_URL_PATTERN,
 ];
 
 static INDIVIDUAL_REGEXES: LazyLock<[Regex; 5]> = LazyLock::new(|| {
@@ -27,8 +27,8 @@ static INDIVIDUAL_REGEXES: LazyLock<[Regex; 5]> = LazyLock::new(|| {
         Regex::new(INSTAGRAM_URL_PATTERN).expect("Valid Instagram regex"),
         Regex::new(REDDIT_URL_PATTERN).expect("Valid Reddit regex"),
         Regex::new(TIKTOK_URL_PATTERN).expect("Valid TikTok regex"),
-        Regex::new(TWITTER_URL_PATTERN).expect("Valid Twitter regex"),
         Regex::new(TWITCH_URL_PATTERN).expect("Valid Twitch regex"),
+        Regex::new(TWITTER_URL_PATTERN).expect("Valid Twitter regex"),
     ]
 });
 
@@ -37,8 +37,8 @@ pub enum Platform {
     Instagram = 0,
     Reddit = 1,
     TikTok = 2,
-    Twitter = 3,
-    Twitch = 4,
+    Twitch = 3,
+    Twitter = 4,
 }
 
 #[derive(Debug, Clone)]
@@ -64,9 +64,9 @@ pub fn contains_url(input: &str) -> bool {
     input.contains("instagram.com")
         || input.contains("reddit.com")
         || input.contains("tiktok.com")
+        || input.contains("twitch.tv")
         || input.contains("twitter.com")
         || input.contains("x.com")
-        || input.contains("twitch.tv")
 }
 
 impl Platform {
@@ -83,8 +83,8 @@ impl Platform {
             Self::Instagram => "Instagram",
             Self::Reddit => "Reddit",
             Self::TikTok => "TikTok",
-            Self::Twitter => "Twitter",
             Self::Twitch => "Twitch",
+            Self::Twitter => "Twitter",
         }
     }
 
@@ -93,8 +93,8 @@ impl Platform {
             0 => Some(Self::Instagram),
             1 => Some(Self::Reddit),
             2 => Some(Self::TikTok),
-            3 => Some(Self::Twitter),
-            4 => Some(Self::Twitch),
+            3 => Some(Self::Twitch),
+            4 => Some(Self::Twitter),
             _ => None,
         }
     }
@@ -104,8 +104,8 @@ impl Platform {
             Self::Instagram => "kkinstagram.com",
             Self::Reddit => "rxddit.com",
             Self::TikTok => "kktiktok.com",
-            Self::Twitter => "fxtwitter.com",
             Self::Twitch => "fxtwitch.seria.moe",
+            Self::Twitter => "fxtwitter.com",
         }
     }
 }
@@ -177,20 +177,6 @@ impl UrlProcessor {
                 self.username = username;
                 self.clean_url = Some(clean_url);
             }
-            Platform::Twitter => {
-                tracing::debug!("Successfully matched the platform: Twitter");
-                let username = captures.name("username")?.as_str();
-                let data = captures.name("data")?.as_str();
-                let clean_url = format!(
-                    "https://{}/{}{}",
-                    self.platform.replacement_domain(),
-                    username,
-                    data
-                );
-
-                self.clean_url = Some(clean_url);
-                self.username = Some(username.to_string());
-            }
             Platform::Twitch => {
                 tracing::debug!("Successfully matched the platform: Twitch");
                 let username = captures.name("username").map(|m| m.as_str().to_string());
@@ -223,6 +209,20 @@ impl UrlProcessor {
 
                 self.clean_url = Some(clean_url);
                 self.username = username;
+            }
+            Platform::Twitter => {
+                tracing::debug!("Successfully matched the platform: Twitter");
+                let username = captures.name("username")?.as_str();
+                let data = captures.name("data")?.as_str();
+                let clean_url = format!(
+                    "https://{}/{}{}",
+                    self.platform.replacement_domain(),
+                    username,
+                    data
+                );
+
+                self.clean_url = Some(clean_url);
+                self.username = Some(username.to_string());
             }
         }
 
@@ -265,7 +265,7 @@ impl UrlProcessor {
                     clean_url
                 )),
             },
-            Platform::TikTok | Platform::Twitter | Platform::Twitch => match self.username {
+            Platform::TikTok | Platform::Twitch | Platform::Twitter => match self.username {
                 Some(username) => Some(format!(
                     "[@{} via {}]({})",
                     username,
