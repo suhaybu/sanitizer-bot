@@ -37,6 +37,7 @@ impl CreditsCommand {
         -  **TikTok & Instagram**: Thanks to [kkScript](https://kkscript.com/)\n\
         -  **Instagram** (Fallback): Powered by the awesome [InstaFix](https://github.com/Wikidepia/InstaFix) project\n\
         -  **Twitch**: Thanks to [FxTwitch](https://github.com/seriaati/fxtwitch)\n\
+        -  **Reddit**: Thanks to the [FxReddit](https://github.com/MinnDevelopment/fxreddit) project\n\
         -# The code that powers me is publicly sourced [here](https://github.com/suhaybu/sanitizer-bot) on GitHub.\n\
             ")
             .build();
