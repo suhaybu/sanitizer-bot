@@ -36,9 +36,6 @@ twilight-http = "0.17"
 twilight-model = "0.17"
 twilight-util = { version = "0.17", features = [ "builder" ] }
 
-[build]
-rustflags = ["-C", "target-cpu=native"]
-
 [profile.release]
 strip = true
 lto = "fat"
