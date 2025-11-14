@@ -29,10 +29,10 @@ shuttle-runtime = "0.57"
 shuttle-turso = "0.57"
 
 # Twilight branch: next
-twilight-gateway = { git = "https://github.com/twilight-rs/twilight", rev = "7a0e90f9b40b0ff0671bb36fd2e4452d8e5f249b" }
-twilight-http = { git = "https://github.com/twilight-rs/twilight", rev = "7a0e90f9b40b0ff0671bb36fd2e4452d8e5f249b" }
-twilight-model = { git = "https://github.com/twilight-rs/twilight", rev = "7a0e90f9b40b0ff0671bb36fd2e4452d8e5f249b" }
-twilight-util = { git = "https://github.com/twilight-rs/twilight", rev = "7a0e90f9b40b0ff0671bb36fd2e4452d8e5f249b", features = [
+twilight-gateway = { git = "https://github.com/twilight-rs/twilight", rev = "007889d01731d75a0dadcee106795de21235acb4" }
+twilight-http = { git = "https://github.com/twilight-rs/twilight", rev = "007889d01731d75a0dadcee106795de21235acb4" }
+twilight-model = { git = "https://github.com/twilight-rs/twilight", rev = "007889d01731d75a0dadcee106795de21235acb4" }
+twilight-util = { git = "https://github.com/twilight-rs/twilight", rev = "007889d01731d75a0dadcee106795de21235acb4", features = [
   "builder",
 ] }
 
