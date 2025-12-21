@@ -1,11 +1,18 @@
 mod discord;
 mod utils;
 
+use std::env;
 use std::sync::{
     Arc, OnceLock,
     atomic::{AtomicBool, Ordering},
 };
 
+use anyhow::Context;
+use time::UtcOffset;
+use time::macros::format_description;
+use tracing::Level;
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::fmt::time::OffsetTime;
 use twilight_gateway::{
     CloseFrame, ConfigBuilder, Event, EventTypeFlags, Intents, Shard, StreamExt as _,
 };
@@ -31,66 +38,31 @@ static EMOJI_ID: OnceLock<Id<EmojiMarker>> = OnceLock::new();
 // Cache for server config.
 static CONFIG_CACHE: OnceLock<ConfigCache> = OnceLock::new();
 
-struct DiscordBot {
-    token: String,
-}
-
-#[shuttle_runtime::async_trait]
-impl shuttle_runtime::Service for DiscordBot {
-    async fn bind(self, _addr: std::net::SocketAddr) -> Result<(), shuttle_runtime::Error> {
-        tokio::select! {
-            result = run_bot(self.token) => {
-                if let Err(e) = result {
-                    tracing::error!("Bot error: {:#}", e);
-                    return Err(shuttle_runtime::Error::Custom(
-                        shuttle_runtime::CustomError::msg(format!("Bot failed: {}", e))
-                    ));
-                }
-            }
-            _ = tokio::signal::ctrl_c() => {
-                tracing::info!("Received shutdown signal");
-            }
-        }
-        Ok(())
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    if let Err(err) = run().await {
+        tracing::error!("Critical error: {:#}", err);
+        tracing::error!("Error details: {:#?}", err);
+        std::process::exit(1);
     }
+    Ok(())
 }
 
-#[shuttle_runtime::main]
-async fn main(
-    #[shuttle_runtime::Secrets] secrets: shuttle_runtime::SecretStore,
-    #[shuttle_turso::Turso(
-        addr = "{secrets.TURSO_DATABASE_URL}",
-        token = "{secrets.TURSO_AUTH_TOKEN}"
-    )]
-    database: libsql::Database,
-) -> Result<DiscordBot, shuttle_runtime::Error> {
-    utils::setup_database(database)
-        .await
-        .map_err(|_| shuttle_runtime::Error::Database("Failed to setup database".to_string()))?;
+/// Runner logic that spins the bot up.
+async fn run() -> anyhow::Result<()> {
+    // Initializes tracing logger and db.
+    prerun_init().await?;
 
-    let token = secrets.get("DISCORD_TOKEN").ok_or_else(|| {
-        shuttle_runtime::Error::Custom(shuttle_runtime::CustomError::msg(
-            "DISCORD_TOKEN not found in secrets",
-        ))
-    })?;
+    let token = env::var("DISCORD_TOKEN").context("DISCORD_TOKEN environment variable not set")?;
 
-    let emoji_id = secrets
-        .get("EMOJI_ID")
-        .and_then(|s| s.parse::<u64>().ok())
-        .ok_or_else(|| {
-            shuttle_runtime::Error::Custom(shuttle_runtime::CustomError::msg(
-                "EMOJI_ID not found or invalid",
-            ))
-        })?;
+    let emoji_id = env::var("EMOJI_ID")
+        .context("EMOJI_ID environment variable not set")?
+        .parse::<u64>()
+        .context("EMOJI_ID must be a valid u64")?;
     EMOJI_ID
         .set(Id::<EmojiMarker>::new(emoji_id))
         .expect("EMOJI_ID already initialized");
 
-    Ok(DiscordBot { token })
-}
-
-/// Runner logic that spins the bot up.
-async fn run_bot(token: String) -> anyhow::Result<()> {
     let intents = Intents::GUILD_MESSAGES
         | Intents::DIRECT_MESSAGES
         | Intents::MESSAGE_CONTENT
@@ -146,7 +118,7 @@ async fn run_bot(token: String) -> anyhow::Result<()> {
 
     // Handle exiting Ctrl+C gracefully.
     tokio::signal::ctrl_c().await?;
-    println!();
+    println!(); // Forces tracing info output to be on a seperate line, cleaner.
     tracing::info!("Shutting down bot gracefully.");
 
     SHUTDOWN.store(true, Ordering::Relaxed);
@@ -180,4 +152,29 @@ async fn shard_runner(mut shard: Shard, client: Arc<Client>) {
         tracing::debug!(kind = ?event.kind(), shard = ?shard.id().number(), "received event");
         tokio::spawn(handle_event(event, client.clone()));
     }
+}
+
+/// Pre-run initialization sequence for the bot.
+async fn prerun_init() -> anyhow::Result<()> {
+    let _ = dotenvy::dotenv();
+
+    // Initialize logging with tracing.
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(Level::INFO.as_str()));
+
+    let time_format = format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]");
+    let timer = OffsetTime::new(UtcOffset::UTC, time_format);
+
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(false)
+        .with_timer(timer)
+        .compact()
+        .init();
+
+    tracing::debug!("Logging initialized");
+
+    utils::init_database().await?;
+
+    Ok(())
 }

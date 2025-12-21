@@ -21,19 +21,18 @@ This project was first written in Python and that version can be found [here](ht
 
 To host your own instance of the bot on Shuttle, follow along. This project is not affiliated or sponsored by Shuttle, and assumes you have Rust installed on your machine.
 
-0. Optional: Create an account on Shuttle [here](https://www.shuttle.dev/), and then follow the documentation for setting up the Shuttle cli [here](https://docs.shuttle.dev/getting-started/installation).
+1. Download the release based on your OS and CPU architecture.
 
-1. Clone this repository.
-
-2. Rename `Secrets.dev.toml.example` to `Secrets.toml` in the project root and update the following variables with the following:
+2. Set the following variables to your enviornment, or in a `.env` file in the same directory as the binary:
 
 | Variable | Description | Where to get it |
 |----------|-------------|-----------------|
 | `DISCORD_TOKEN` | Discord bot token for authentication | [Discord Developer Portal](https://discord.com/developers/applications) |
 | `TURSO_DATABASE_URL` | Database URL for storing server configurations | [Turso Dashboard](https://turso.tech/) |
 | `TURSO_AUTH_TOKEN` | Authentication token for Turso database access | [Turso Dashboard](https://turso.tech/) |
+| `EMOJI_ID` | Emoji ID used by the bot to react to messages. | [Discord](https://discord.com/developers/applications/) |
 
-3. Deploy the code using ```cargo shuttle deploy```
+3. Run the binary.
 
 ## Usage
 

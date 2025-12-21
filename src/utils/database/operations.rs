@@ -2,7 +2,7 @@ use anyhow::Context;
 use libsql::params;
 use serde::{Deserialize, Serialize};
 
-use super::connection::get_connection;
+use super::connection::{get_connection, sync_database};
 use crate::discord::models::{DeletePermission, SanitizerMode};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -32,8 +32,11 @@ impl ServerConfig {
     async fn get(guild_id: u64) -> anyhow::Result<Self> {
         let conn = get_connection()?;
 
-        let sql = "SELECT guild_id, sanitizer_mode, delete_permission, hide_original_embed
-                           FROM server_configs WHERE guild_id = ?";
+        let sql = r#"
+            SELECT guild_id, sanitizer_mode, delete_permission, hide_original_embed
+            FROM server_configs
+            WHERE guild_id = ?
+        "#;
 
         let stmt = conn
             .prepare(sql)
@@ -82,6 +85,12 @@ impl ServerConfig {
 
         tracing::debug!("Saved config for guild {}", self.guild_id);
         tracing::debug!("{:?}", self);
+
+        tokio::spawn(async move {
+            if let Err(e) = sync_database().await {
+                tracing::warn!("Failed to sync database after write: {:?}", e);
+            }
+        });
 
         Ok(())
     }

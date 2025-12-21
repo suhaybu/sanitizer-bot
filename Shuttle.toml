@@ -1,8 +1,0 @@
-# Shuttle deployment configuration
-# See: https://docs.shuttle.dev/configuration/shuttle-toml
-
-[build]
-# If you need to include any files for deployment, add them here
-# assets = ["static/**/*"]
-
-

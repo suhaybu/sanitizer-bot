@@ -7,5 +7,3 @@
 local.db
 local.db-*
 sanitizer-bot.db
-
-Secrets.dev.toml
