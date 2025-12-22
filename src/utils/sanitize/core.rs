@@ -4,15 +4,19 @@ use anyhow::{Context, Ok};
 use regex::{Regex, RegexSet, RegexSetBuilder};
 use scraper::Selector;
 
-// Regex's for capturing urls
+// Regex's for capturing urls.
 const INSTAGRAM_URL_PATTERN: &str =
-    r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reels?|p)(?P<data>/[^/\s?)\]`]+)";
-const REDDIT_URL_PATTERN: &str = r"(?i)https?://(?P<subdomain>(?:www\.|old\.)?)reddit\.com/(?P<subreddit>r/[^/]+)(?P<data>/[^?\s)\]`]*)?";
+    r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reels?|p)(?P<data>/[^/\s?)\]`|]+)";
+
+const REDDIT_URL_PATTERN: &str = r"(?i)https?://(?P<subdomain>(?:www\.|old\.)?)reddit\.com/(?P<subreddit>r/[^/]+)(?P<data>/[^?\s)\]`|]*)?";
+
 const TIKTOK_URL_PATTERN: &str =
-    r"(?i)https?://(?P<subdomain>(?:\w{1,3}\.)?)(?P<domain>tiktok\.com)(?P<data>/[^?\s)\]`]*)";
-const TWITCH_URL_PATTERN: &str = r"(?i)https?://(www\.)?(twitch\.tv/(?P<username>\w+)/clip/|clips\.twitch\.tv/)(?P<data>[^?\s)\]`]+)";
+    r"(?i)https?://(?P<subdomain>(?:\w{1,3}\.)?)(?P<domain>tiktok\.com)(?P<data>/[^?\s)\]`|]*)";
+
+const TWITCH_URL_PATTERN: &str = r"(?i)https?://(www\.)?(twitch\.tv/(?P<username>\w+)/clip/|clips\.twitch\.tv/)(?P<data>[^?\s)\]`|]+)";
+
 const TWITTER_URL_PATTERN: &str =
-    r"(?i)https?://(www\.)?(twitter|x)\.com/(?P<username>\w+)(?P<data>/status/[^?\s)\]`]*)";
+    r"(?i)https?://(www\.)?(twitter|x)\.com/(?P<username>\w+)(?P<data>/status/[^?\s)\]`|]*)";
 
 const URL_PATTERNS: &[&str] = &[
     INSTAGRAM_URL_PATTERN,
@@ -48,6 +52,7 @@ pub struct UrlProcessor {
     clean_url: Option<String>,
     username: Option<String>,
     post_type: Option<String>,
+    spoiler: bool,
 }
 
 static REGEX_SET: LazyLock<anyhow::Result<RegexSet>> = LazyLock::new(|| {
@@ -119,12 +124,17 @@ impl UrlProcessor {
             clean_url: None,
             username: None,
             post_type: None,
+            spoiler: false,
         })
     }
 
     pub async fn capture_url(mut self) -> Option<Self> {
         let regex = &INDIVIDUAL_REGEXES[self.platform as usize];
         let captures = regex.captures(&self.user_input)?;
+
+        if let Some(capture) = captures.get(0) {
+            self.spoiler = self.is_spoiler(capture.start(), capture.end());
+        }
 
         match self.platform {
             Platform::Instagram => {
@@ -233,7 +243,7 @@ impl UrlProcessor {
         tracing::debug!("Attempting to format the final output.");
         let clean_url = self.clean_url?;
 
-        match self.platform {
+        let formatted_string = match self.platform {
             Platform::Instagram => {
                 let post_type_display = self
                     .post_type
@@ -245,39 +255,37 @@ impl UrlProcessor {
                     })
                     .unwrap_or("Post");
 
-                Some(format!(
+                format!(
                     "[{} via {}]({})",
                     post_type_display,
                     self.platform.display_name(),
                     clean_url
-                ))
+                )
             }
             Platform::Reddit => match self.username {
-                Some(username) => Some(format!(
+                Some(username) => format!(
                     "[{} via {}]({})",
                     username,
                     self.platform.display_name(),
                     clean_url
-                )),
-                None => Some(format!(
-                    "[Post via {}]({})",
-                    self.platform.display_name(),
-                    clean_url
-                )),
+                ),
+                None => format!("[Post via {}]({})", self.platform.display_name(), clean_url),
             },
             Platform::TikTok | Platform::Twitch | Platform::Twitter => match self.username {
-                Some(username) => Some(format!(
+                Some(username) => format!(
                     "[@{} via {}]({})",
                     username,
                     self.platform.display_name(),
                     clean_url
-                )),
-                None => Some(format!(
-                    "[Post via {}]({})",
-                    self.platform.display_name(),
-                    clean_url
-                )),
+                ),
+                None => format!("[Post via {}]({})", self.platform.display_name(), clean_url),
             },
+        };
+
+        if self.spoiler {
+            Some(format!("|| {} ||", formatted_string))
+        } else {
+            Some(formatted_string)
         }
     }
 
@@ -287,7 +295,21 @@ impl UrlProcessor {
         regex.find(&self.user_input).map(|m| m.as_str().to_string())
     }
 
-    // Retrieve's the author name by attempting to curl the url and parse the output.
+    /// Checks if the url in the input is part of a spoiler.
+    fn is_spoiler(&self, match_start: usize, match_end: usize) -> bool {
+        let pre_url = &self.user_input[..match_start];
+        let post_url = &self.user_input[match_end..];
+
+        let pipes_before = pre_url.matches("||").count();
+        let pipes_after = post_url.contains("||");
+
+        // Logic:
+        // 1. Before url, odd number of pipes
+        // 2. After url, at least one pipe
+        pipes_before % 2 == 1 && pipes_after
+    }
+
+    /// Retrieve's the author name by attempting to curl the url and parse the output.
     async fn get_author(url: &str, platform: Platform) -> anyhow::Result<Option<String>> {
         tracing::debug!("Attempting to get author, building reqwest client");
         let client = reqwest::Client::builder()
