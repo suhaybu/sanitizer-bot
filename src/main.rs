@@ -118,7 +118,7 @@ async fn run() -> anyhow::Result<()> {
 
     // Handle exiting Ctrl+C gracefully.
     tokio::signal::ctrl_c().await?;
-    println!(); // Forces tracing info output to be on a seperate line, cleaner.
+    println!(); // Forces tracing info output to be on a seperate line.
     tracing::info!("Shutting down bot gracefully.");
 
     SHUTDOWN.store(true, Ordering::Relaxed);
@@ -148,7 +148,7 @@ async fn shard_runner(mut shard: Shard, client: Arc<Client>) {
             }
         };
 
-        // Process Discord events (see `process.rs` file).
+        // Process Discord events (see `discord::events.rs` for implementation).
         tracing::debug!(kind = ?event.kind(), shard = ?shard.id().number(), "received event");
         tokio::spawn(handle_event(event, client.clone()));
     }
