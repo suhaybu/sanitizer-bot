@@ -27,6 +27,7 @@ twilight-gateway = "0.17"
 twilight-http = "0.17"
 twilight-model = "0.17"
 twilight-util = { version = "0.17", features = [ "builder" ] }
+axum = "0.8.8"
 
 [profile.release]
 strip = true

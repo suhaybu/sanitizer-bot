@@ -2,12 +2,14 @@ mod discord;
 mod utils;
 
 use std::env;
+use std::net::SocketAddr;
 use std::sync::{
     Arc, OnceLock,
     atomic::{AtomicBool, Ordering},
 };
 
 use anyhow::Context;
+use axum::{Router, routing::get};
 use time::UtcOffset;
 use time::macros::format_description;
 use tracing::Level;
@@ -50,6 +52,22 @@ async fn main() -> anyhow::Result<()> {
 
 /// Runner logic that spins the bot up.
 async fn run() -> anyhow::Result<()> {
+    tokio::spawn(async {
+        let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+        let addr: SocketAddr = format!("0.0.0.0:{}", port)
+            .parse()
+            .expect("Invalid address format");
+
+        let app = Router::new().route("/", get(|| async { "Sanitizer Bot is alive!" }));
+
+        tracing::info!("Dummy server listening on {}", addr);
+
+        let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+
+        if let Err(e) = axum::serve(listener, app).await {
+            tracing::error!("Server error: {}", e);
+        }
+    });
     // Initializes tracing logger and db.
     prerun_init().await?;
 
