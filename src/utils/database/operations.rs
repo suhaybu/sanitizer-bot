@@ -111,6 +111,29 @@ impl ResponseMap {
             Ok(None)
         }
     }
+
+    pub async fn delete_entry(user_message_id: u64) -> anyhow::Result<()> {
+        let conn = get_connection()?;
+
+        let sql = "DELETE FROM response_map WHERE user_message_id = ?";
+
+        conn.execute(sql, params![user_message_id as i64])
+            .await
+            .context("Failed to delete from response map")?;
+
+        tracing::debug!(
+            "Deleted response map for user_message_id={}",
+            user_message_id
+        );
+
+        tokio::spawn(async move {
+            if let Err(e) = sync_database().await {
+                tracing::warn!("Failed to sync database after delete: {:?}", e);
+            }
+        });
+
+        Ok(())
+    }
 }
 
 impl ServerConfig {
