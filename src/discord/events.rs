@@ -24,8 +24,8 @@ use crate::utils::{ServerConfig, config_cache, sanitize};
 pub async fn handle_event(event: Event, client: Arc<Client>) {
     match event {
         Event::InteractionCreate(ctx) => {
-            if let Err(error) = handle_interaction(ctx.0, &client).await {
-                tracing::error!(?error, "Failed to handle Event::InteractionCreate");
+            if let Err(e) = handle_interaction(ctx.0, &client).await {
+                tracing::error!(?e, "Failed to handle Event::InteractionCreate");
             }
         }
         Event::MessageCreate(ctx) => {
@@ -38,8 +38,8 @@ pub async fn handle_event(event: Event, client: Arc<Client>) {
                 return;
             }
 
-            if let Err(error) = handle_on_message(ctx.0, &client).await {
-                tracing::error!(?error, "Failed to handle Event::MessageCreate")
+            if let Err(e) = handle_on_message(ctx.0, &client).await {
+                tracing::error!(?e, "Failed to handle Event::MessageCreate")
             }
         }
         Event::ReactionAdd(ctx) => {
@@ -52,8 +52,8 @@ pub async fn handle_event(event: Event, client: Arc<Client>) {
                 return;
             }
 
-            if let Err(error) = handle_reaction_add(ctx.0, &client).await {
-                tracing::error!(?error, "Failed to handle Event::ReactionAdd");
+            if let Err(e) = handle_reaction_add(ctx.0, &client).await {
+                tracing::error!(?e, "Failed to handle Event::ReactionAdd");
             }
         }
         _ => (),

@@ -117,7 +117,7 @@ async fn init_database_internal() -> anyhow::Result<Database> {
 async fn create_tables(conn: &Connection) -> anyhow::Result<()> {
     tracing::debug!("Ensuring database schema exists");
 
-    let create_sanitizer_table = r#"
+    let create_server_configs_table = r#"
         CREATE TABLE IF NOT EXISTS server_configs (
             guild_id INTEGER PRIMARY KEY,
             sanitizer_mode INTEGER NOT NULL DEFAULT 0,
@@ -126,10 +126,10 @@ async fn create_tables(conn: &Connection) -> anyhow::Result<()> {
         )
     "#;
 
-    conn.execute(create_sanitizer_table, ())
+    conn.execute(create_server_configs_table, ())
         .await
         .context("Failed to create server_configs table")?;
 
-    tracing::debug!("Database schema ensured");
+    tracing::debug!("Database schema set.");
     Ok(())
 }
