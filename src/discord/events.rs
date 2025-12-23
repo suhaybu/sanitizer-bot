@@ -80,6 +80,8 @@ async fn handle_message_delete(ctx: MessageDelete, client: &Client) -> anyhow::R
                 )
                 .await?;
 
+            ResponseMap::delete_entry(ctx.id.get()).await?;
+
             Ok(())
         }
         None => {
