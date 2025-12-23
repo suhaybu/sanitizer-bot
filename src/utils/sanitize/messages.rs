@@ -11,7 +11,7 @@ use crate::{
     BOT_USER_ID,
     discord::models::{DeletePermission, SanitizerMode},
     utils::{
-        database::ServerConfig,
+        database::{ResponseMap, ServerConfig},
         sanitize::{UrlProcessor, core::Platform},
     },
 };
@@ -90,14 +90,22 @@ pub async fn process_message(
         components,
     });
 
-    client
+    let bot_response = client
         .create_message(message.channel_id)
         .content(&output)
         .components(&[components])
         .flags(MessageFlags::SUPPRESS_NOTIFICATIONS)
         .reply(message.id)
         .allowed_mentions(Some(&AllowedMentions::default()))
+        .await?
+        .model()
         .await?;
+
+    // Saves the response in the response map.
+    let response_map = ResponseMap::new(message, bot_response.id);
+    if let Err(e) = response_map.save().await {
+        tracing::warn!("Failed to save response_map due to: {:?}", e);
+    }
 
     // Early exits if message is not in a server
     let Some(server_config) = server_config else {

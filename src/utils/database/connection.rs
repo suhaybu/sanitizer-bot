@@ -130,6 +130,28 @@ async fn create_tables(conn: &Connection) -> anyhow::Result<()> {
         .await
         .context("Failed to create server_configs table")?;
 
+    let create_response_map_table = r#"
+        CREATE TABLE IF NOT EXISTS response_map (
+            user_message_id INTEGER PRIMARY KEY,
+            bot_message_id INTEGER NOT NULL,
+            guild_id INTEGER,
+            channel_id INTEGER NOT NULL
+        )
+        "#;
+
+    conn.execute(create_response_map_table, ())
+        .await
+        .context("Failed to create response_map table")?;
+
+    let create_index = r#"
+            CREATE INDEX IF NOT EXISTS idx_response_map_location
+            ON response_map (guild_id, channel_id)
+        "#;
+
+    conn.execute(create_index, ())
+        .await
+        .context("Failed to create index for response_map")?;
+
     tracing::debug!("Database schema set.");
     Ok(())
 }

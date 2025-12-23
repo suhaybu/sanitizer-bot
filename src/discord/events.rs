@@ -11,14 +11,16 @@ use twilight_model::application::interaction::{Interaction, InteractionData};
 use twilight_model::channel::Message;
 use twilight_model::channel::message::{Component, MessageFlags, MessageType};
 use twilight_model::gateway::GatewayReaction;
+use twilight_model::gateway::payload::incoming::MessageDelete;
 use twilight_model::guild::Permissions;
 use twilight_model::http::interaction::{InteractionResponse, InteractionResponseType};
+use twilight_model::id::Id;
 use twilight_util::builder::InteractionResponseDataBuilder;
 use twilight_util::builder::message::{ContainerBuilder, TextDisplayBuilder};
 
 use crate::discord::commands;
 use crate::discord::models::{DeletePermission, SanitizerMode, SettingsMenuType};
-use crate::utils::{ServerConfig, config_cache, sanitize};
+use crate::utils::{ResponseMap, ServerConfig, config_cache, sanitize};
 
 /// Handles all types of incomming events from Discord.
 pub async fn handle_event(event: Event, client: Arc<Client>) {
@@ -56,7 +58,34 @@ pub async fn handle_event(event: Event, client: Arc<Client>) {
                 tracing::error!(?e, "Failed to handle Event::ReactionAdd");
             }
         }
+        Event::MessageDelete(ctx) => {
+            if let Err(e) = handle_message_delete(ctx, &client).await {
+                tracing::error!(?e, "Failed to handle Event::MessageDelete")
+            }
+        }
         _ => (),
+    }
+}
+
+async fn handle_message_delete(ctx: MessageDelete, client: &Client) -> anyhow::Result<()> {
+    let matched_bot_response = ResponseMap::find_match(ctx.id).await?;
+
+    match matched_bot_response {
+        Some(response_map) => {
+            tracing::debug!("Response match found for message ID: {}", ctx.id);
+            client
+                .delete_message(
+                    Id::new(response_map.channel_id),
+                    Id::new(response_map.bot_message_id),
+                )
+                .await?;
+
+            Ok(())
+        }
+        None => {
+            tracing::debug!("No match found for message ID: {}", ctx.id);
+            Ok(())
+        }
     }
 }
 
