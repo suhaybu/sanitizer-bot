@@ -34,6 +34,25 @@ To host your own instance of the bot on Shuttle, follow along. This project is n
 
 3. Run the binary.
 
+### Docker
+
+Sanitizer can also be run using Docker. Prebuilt, lightweight images are published to GitHub Container Registry (GHCR) on each release.
+
+Image:
+`ghcr.io/suhaybu/sanitizer-bot`
+
+The container uses the same environment variables as the binary:
+DISCORD_TOKEN, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, EMOJI_ID
+
+When running in Docker, Sanitizer uses Turso’s embedded replica mode. This creates a local SQLite database file inside the container that must be persisted with a volume mount so server configuration and message mappings survive restarts.
+
+A sample docker-compose.yml is provided in the repository for reference. Note that the example docker-compose.yml references the `stack.env` file used within Portainer. You can modify this to use your own `.env` file or set the variables directly in the docker-compose.yml if you wish.
+
+To update the bot:
+- Pull the latest image from GHCR
+- Restart the container
+
+
 ## Usage
 
 Once the bot is running, you can use the following commands:
