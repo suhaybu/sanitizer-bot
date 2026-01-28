@@ -1,0 +1,11 @@
+services:
+    sanitizer-bot:
+        image: ghcr.io/suhaybu/sanitizer-bot:latest
+        restart: unless-stopped
+        env_file:
+            - stack.env # This will load the env values set in Buape's panel
+        volumes:
+            - sanitizer_data:/data
+
+volumes:
+    sanitizer_data:
