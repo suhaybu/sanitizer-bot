@@ -32,11 +32,11 @@ impl CreditsCommand {
     /// Handles responding to command invocation.
     pub async fn handle(ctx: &Interaction, client: &Client) -> anyhow::Result<()> {
         let embed = EmbedBuilder::new().title("Credits 🎺")
-         .description("These are all the super cool projects I rely on:\n\
+         .description("These are all the super cool projects that I rely on:\n\
         -  **Twitter**: Thanks to FixTweet's reliable [FxTwitter](https://github.com/FixTweet/FxTwitter) project\n\
         -  **TikTok & Instagram**: Thanks to [kkScript](https://kkscript.com/)\n\
         -  **Instagram** (Fallback): Powered by the awesome [InstaFix](https://github.com/Wikidepia/InstaFix) project\n\
-        -  **Twitch**: Thanks to [FxTwitch](https://github.com/seriaati/fxtwitch)\n\
+        -  **Twitch**: Thanks to the [FxTwitch](https://github.com/seriaati/fxtwitch) project\n\
         -  **Reddit**: Thanks to the [FxReddit](https://github.com/MinnDevelopment/fxreddit) project\n\
         -# The code that powers me is publicly sourced [here](https://github.com/suhaybu/sanitizer-bot) on GitHub.\n\
             ")
