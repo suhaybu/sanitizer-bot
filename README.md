@@ -6,7 +6,7 @@ Sanitizer is a simple bot that uses regex to identify links for social platforms
 
 The bot is developed using the `twilight` library. You can view their GitHub repo [here](https://github.com/twilight-rs/twilight). You can add the Sanitizer bot to your server or install it as a user app from [here](https://discord.com/oauth2/authorize?client_id=1197778683113513081).
 
-This project was first written in Python and that version can be found [here](https://github.com/Suhaybu/sanitizer-bot-py).
+My friends at Buape are generously hosting me! They build all kinds of awesome projects—check them out [here](https://www.buape.com/). This project was first implemented in Python which can be found [here](https://github.com/Suhaybu/sanitizer-bot-py).
 
 ## Features
 
@@ -70,6 +70,7 @@ Twitter - [@suhayb_u](https://twitter.com/suhayb_u)
 
 ## Acknowledgments
 -   [twilight](https://github.com/twilight-rs/twilight)
+-   [Buape Team](https://www.buape.com/) - Hosting the Sanitizer Bot
 -   [FxTwitter](https://github.com/FixTweet/FxTwitter)
 -   [kkScript](https://kkscript.com/)
 -   [InstaFix](https://github.com/Wikidepia/InstaFix)
