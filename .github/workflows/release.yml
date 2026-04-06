@@ -134,7 +134,7 @@ jobs:
         with:
           path: artifacts
 
-      - uses: softprops/action-gh-release@v1
+      - uses: softprops/action-gh-release@v2
         with:
           name: Latest
           tag_name: latest
