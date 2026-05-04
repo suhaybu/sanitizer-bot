@@ -189,7 +189,7 @@ async fn handle_app_command(
     data: &CommandData,
 ) -> anyhow::Result<()> {
     match command_name {
-        "credits" => commands::CreditsCommand::handle(interaction, client).await,
+        "help" => commands::HelpCommand::handle(interaction, client).await,
         "settings" => commands::SettingsCommand::handle(interaction, client).await,
         "Sanitize" | "sanitize" => {
             commands::SanitizeCommand::handle(interaction, client, data).await

@@ -1,10 +1,10 @@
 //! Stores business logic for commands
 
-pub mod credits;
+pub mod help;
 pub mod sanitize;
 pub mod settings;
 
-pub use credits::CreditsCommand;
+pub use help::HelpCommand;
 pub use sanitize::SanitizeCommand;
 pub use settings::SettingsCommand;
 
@@ -15,7 +15,7 @@ use twilight_http::Client;
 /// This command registers all the discord commands, and is called in main::run().
 pub async fn register_global_commands(client: &Arc<Client>) -> anyhow::Result<()> {
     let commands = [
-        credits::CreditsCommand::create_command(),
+        help::HelpCommand::create_command(),
         settings::SettingsCommand::create_command(),
         sanitize::SanitizeCommand::create_command(),
         sanitize::SanitizeCommand::create_command_message(),

@@ -14,12 +14,12 @@ use twilight_util::builder::{
     InteractionResponseDataBuilder, command::CommandBuilder, embed::EmbedBuilder,
 };
 
-pub struct CreditsCommand;
+pub struct HelpCommand;
 
-impl CreditsCommand {
-    /// Creates /credits command.
+impl HelpCommand {
+    /// Creates /help command.
     pub fn create_command() -> Command {
-        CommandBuilder::new("credits", "Roll the credits! 🎺", CommandType::ChatInput)
+        CommandBuilder::new("help", "Learn more about me 📖", CommandType::ChatInput)
             .contexts([
                 InteractionContextType::Guild,
                 InteractionContextType::BotDm,
@@ -38,8 +38,7 @@ impl CreditsCommand {
         -  **Instagram** (Fallback): Powered by the awesome [InstaFix](https://github.com/Wikidepia/InstaFix) project\n\
         -  **Twitch**: Thanks to the [FxTwitch](https://github.com/seriaati/fxtwitch) project\n\
         -  **Reddit**: Thanks to the [FxReddit](https://github.com/MinnDevelopment/fxreddit) project\n\
-        My friends at Buape are generously hosting me! They build all kinds of awesome projects—check them out [here](https://www.buape.com/).\n\
-        -# The code that powers me is publicly sourced [here](https://github.com/suhaybu/sanitizer-bot) on GitHub.\n\
+        -# The code that powers me is publicly sourced [here](https://github.com/suhaybu/sanitizer-bot) on GitHub along with the [Privacy policy](https://github.com/suhaybu/sanitizer-bot/blob/master/PRIVACY.md).\n\
             ")
             .build();
 
