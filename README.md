@@ -12,7 +12,7 @@ This project was first implemented in Python which can be found [here](https://g
 
 -   **No logs:** No form of logs are saved.
 -   **Supports Multiple platforms:** Currently works with Twitter, TikTok, and Instagram.
--   **Configurable:** You can change the behavior of the bot using `/config`.
+-   **Configurable:** You can change the behavior of the bot using `/settings`.
 -   **User Installable App:** The `/sanitize` app command can be used anywhere.
 -   **Handles Direct Messages:** Will attempt to fix links sent directly in DM's.
 
@@ -56,9 +56,9 @@ To update the bot:
 ## Usage
 
 Once the bot is running, you can use the following commands:
--   `/credits`: To roll the credits
+-   `/help`: To learn more about the bot 
 -   `/sanitize`: To fix the embed of your link
--   `/config`: to configure the bot
+-   `/settings`: To configure the bot's behaviour
 
 ## License
 
