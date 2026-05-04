@@ -13,6 +13,7 @@ use twilight_model::{
         EmojiReactionType, MessageFlags,
         component::{Component, Container, SelectMenuType, SeparatorSpacingSize},
     },
+    guild::Permissions,
     http::interaction::{InteractionResponse, InteractionResponseType},
     oauth::ApplicationIntegrationType,
 };
@@ -40,6 +41,7 @@ impl SettingsCommand {
             "Configure Sanitizer's settings for this server 🛠️",
             CommandType::ChatInput,
         )
+        .default_member_permissions(Permissions::MANAGE_GUILD)
         .contexts([InteractionContextType::Guild])
         .integration_types([ApplicationIntegrationType::GuildInstall])
         .build()
@@ -50,6 +52,32 @@ impl SettingsCommand {
         let Some(guild_id) = ctx.guild_id else {
             anyhow::bail!("Settings can only be used in guilds!")
         };
+
+        let has_permission = ctx
+            .member
+            .as_ref()
+            .and_then(|m| m.permissions)
+            .map(|p| p.contains(Permissions::MANAGE_GUILD))
+            .unwrap_or(false);
+
+        if !has_permission {
+            let response = InteractionResponse {
+                kind: InteractionResponseType::ChannelMessageWithSource,
+                data: Some(
+                    InteractionResponseDataBuilder::new()
+                        .content("❌ You need **Manage Server** permission to use this command.")
+                        .flags(MessageFlags::EPHEMERAL)
+                        .build(),
+                ),
+            };
+
+            client
+                .interaction(ctx.application_id)
+                .create_response(ctx.id, &ctx.token, &response)
+                .await?;
+
+            return Ok(());
+        }
 
         // Get current server configuration
         let config = config_cache().get_or_fetch(guild_id.get()).await?;
