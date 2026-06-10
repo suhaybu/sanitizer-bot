@@ -94,9 +94,11 @@ pub async fn process_message(
         .create_message(message.channel_id)
         .content(&output)
         .components(&[components])
-        .flags(MessageFlags::SUPPRESS_NOTIFICATIONS)
         .reply(message.id)
-        .allowed_mentions(Some(&AllowedMentions::default()))
+        .allowed_mentions(Some(&AllowedMentions {
+            replied_user: false,
+            ..Default::default()
+        }))
         .await?
         .model()
         .await?;
