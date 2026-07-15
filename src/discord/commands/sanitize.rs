@@ -176,7 +176,7 @@ impl SanitizeCommand {
         Ok(())
     }
 
-    /// Constructs the open link button & Optional<delete button>.
+    /// Constructs the open link button & Optional delete button.
     fn construct_buttons(original_url: String, add_delete_button: bool) -> Component {
         let mut buttons = vec![Component::Button(Button {
             id: None,
