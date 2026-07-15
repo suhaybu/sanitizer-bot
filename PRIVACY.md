@@ -9,8 +9,8 @@ Sanitizer Bot ("the Bot") is committed to protecting user privacy. This Privacy 
 ## Information We Process
 
 The Bot processes the following information:
-- Message content containing URLs from supported platforms (Twitter/X, Instagram, TikTok)
-- Basic Discord message metadata required for bot functionality
+- Message content containing URLs from the list of supported platforms
+- Basic Discord message metadata required for bot functionality such as message_id, channel_id and guild_id
 
 ## How We Use Information
 
@@ -18,24 +18,25 @@ The Bot:
 1. Reads messages in channels where it has been granted access
 2. Processes messages only to identify and convert supported platform links
 3. Responds with converted links that are embed-friendly
-4. Manages server-specific settings using Turso (only stores server configuration, not user data)
+4. The following is stored for the delete feature: message_id of user's message, message_id of bot's message, channel_id and guild_id
+5. When a user deletes a message, the stored data entry for the respective message is removed containing the message_id, channel_id, and guild_id. 
+6. Manages server-specific settings using Turso (only stores server configuration, not user data)
 
 ## Information We DO NOT Collect
 
 The Bot does not:
-- Store or log any user messages
+- Store or log any user message content
 - Track user behavior or analytics
 - Collect personal information
-- Maintain message history
 - Store parsed URLs
 - Create user profiles
 - Share data with third parties
 
 ## Data Storage
 
-- Server Settings: The Bot stores only server-specific configuration in Turso (sanitizer mode, delete permissions, embed visibility settings)
-- Message Processing: All message processing is done in-memory and immediately discarded
-- No Logs: The Bot does not maintain logs of processed messages or user interactions
+- Server Settings: The Bot stores server-specific configuration in Turso (sanitizer mode, delete permissions, embed visibility settings)
+- Message Processing: All message processing is done in-memory and the message content is immediately discarded, however the message_id of only processed messages are stored for delete message feature. The message_id's are grouped only by guild_id, user_id is never stored.
+- No Logs: The Bot does not maintain any form of logs that contain the content or links from processed messages and user interactions
 
 ## Third-Party Services
 
@@ -43,6 +44,8 @@ The Bot interacts with:
 - FxTwitter for Twitter/X links
 - kkScript for TikTok and Instagram links
 - DDInstagram as a fallback for Instagram links
+- FxReddit for Reddit links
+- FxTwitch for Twitch links
 
 These services are used solely for link conversion and do not receive any user data beyond the URLs being converted.
 
