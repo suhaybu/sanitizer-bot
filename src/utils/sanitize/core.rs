@@ -116,7 +116,7 @@ impl Platform {
 }
 
 impl UrlProcessor {
-    pub fn try_new(input: &str) -> Option<Self> {
+    pub fn try_new(input: &str, spoiler: bool) -> Option<Self> {
         let platform = Platform::try_detect(input)?;
         Some(Self {
             platform,
@@ -124,7 +124,7 @@ impl UrlProcessor {
             clean_url: None,
             username: None,
             post_type: None,
-            spoiler: false,
+            spoiler,
         })
     }
 
@@ -132,8 +132,9 @@ impl UrlProcessor {
         let regex = &INDIVIDUAL_REGEXES[self.platform as usize];
         let captures = regex.captures(&self.user_input)?;
 
+        // Checks if content has a spoiler if spoiler hasn't already been manually set
         if let Some(capture) = captures.get(0) {
-            self.spoiler = self.is_spoiler(capture.start(), capture.end());
+            self.spoiler = self.spoiler || self.is_spoiler(capture.start(), capture.end());
         }
 
         match self.platform {

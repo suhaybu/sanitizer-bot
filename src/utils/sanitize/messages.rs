@@ -39,7 +39,7 @@ pub async fn process_message(
         },
     };
 
-    let url = match UrlProcessor::try_new(&message.content) {
+    let url = match UrlProcessor::try_new(&message.content, false) {
         Some(url) => url,
         None => return Ok(()),
     };
@@ -146,7 +146,7 @@ pub async fn process_message(
 /// Adds an emote to a valid message in the Sanitizer::ManualEmote/Both mode.
 pub async fn add_emote(message: &Message, client: &Client) -> anyhow::Result<()> {
     // Exits early if URL is not valid
-    if UrlProcessor::try_new(&message.content).is_none() {
+    if UrlProcessor::try_new(&message.content, false).is_none() {
         tracing::debug!("No valid URL found in message");
         return Ok(());
     };

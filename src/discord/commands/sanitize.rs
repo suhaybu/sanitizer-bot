@@ -4,7 +4,7 @@ use anyhow::Context;
 use twilight_http::Client;
 use twilight_model::{
     application::{
-        command::{Command, CommandOption, CommandOptionType, CommandType},
+        command::{Command, CommandType},
         interaction::{
             Interaction, InteractionContextType,
             application_command::{CommandData, CommandOptionValue},
@@ -17,7 +17,7 @@ use twilight_model::{
     http::interaction::{InteractionResponse, InteractionResponseType},
     oauth::ApplicationIntegrationType,
 };
-use twilight_util::builder::command::CommandBuilder;
+use twilight_util::builder::command::{BooleanBuilder, CommandBuilder, StringBuilder};
 
 use crate::utils::sanitize::UrlProcessor;
 
@@ -40,22 +40,18 @@ impl SanitizeCommand {
             ApplicationIntegrationType::GuildInstall,
             ApplicationIntegrationType::UserInstall,
         ])
-        .option(CommandOption {
-            autocomplete: None,
-            channel_types: None,
-            choices: None,
-            description: "Your link goes here".to_string(),
-            description_localizations: None,
-            kind: CommandOptionType::String,
-            max_length: Some(100),
-            max_value: None,
-            min_length: None,
-            min_value: None,
-            name: "link".to_string(),
-            name_localizations: None,
-            options: None,
-            required: Some(true),
-        })
+        .option(
+            StringBuilder::new("link", "Your link goes here!")
+                .max_length(100)
+                .required(true),
+        )
+        .option(
+            BooleanBuilder::new(
+                "spoiler",
+                "Would you like the output message to be in a spoiler?",
+            )
+            .required(false),
+        )
         .build()
     }
 
@@ -92,19 +88,28 @@ impl SanitizeCommand {
             .await?;
 
         // Extract message input.
-        let user_input = match data.kind {
+        let (user_input, is_spoiler) = match data.kind {
             // For the /command.
             CommandType::ChatInput => {
-                let data_option = data
+                let link = data
                     .options
-                    .first()
-                    .context("No Options provided for ChatInput command")?;
+                    .iter()
+                    .find_map(|o| match &o.value {
+                        CommandOptionValue::String(s) if o.name == "link" => Some(s.as_str()),
+                        _ => None,
+                    })
+                    .context("Missing required 'link' option")?;
 
-                let CommandOptionValue::String(link) = &data_option.value else {
-                    anyhow::bail!("Expected String option, got: {:?}", data_option.value);
-                };
+                let is_spoiler = data
+                    .options
+                    .iter()
+                    .find_map(|o| match &o.value {
+                        CommandOptionValue::Boolean(b) if o.name == "spoiler" => Some(*b),
+                        _ => None,
+                    })
+                    .unwrap_or(false);
 
-                link
+                (link, is_spoiler)
             }
             // For the right-click on message.
             CommandType::Message => {
@@ -119,12 +124,12 @@ impl SanitizeCommand {
                     .next()
                     .context("No message found in resolved data")?;
 
-                &message.content
+                (message.content.as_str(), false)
             }
             _ => anyhow::bail!("Unexpected CommandType: {:?}", data.kind),
         };
 
-        let url = match UrlProcessor::try_new(user_input) {
+        let url = match UrlProcessor::try_new(user_input, is_spoiler) {
             Some(url) => url,
             None => {
                 client
