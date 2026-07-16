@@ -12,7 +12,7 @@ use crate::{
     discord::models::{DeletePermission, SanitizerMode},
     utils::{
         database::{ResponseMap, ServerConfig},
-        sanitize::{UrlProcessor, core::Platform},
+        sanitize::{UrlProcessor, core::get_links},
     },
 };
 
@@ -22,48 +22,84 @@ pub async fn process_message(
     client: &Client,
     server_config: Option<ServerConfig>,
 ) -> anyhow::Result<()> {
-    let message = match Platform::try_detect(&message.content) {
-        Some(_) => message,
-        None => match server_config.as_ref() {
-            Some(config)
-                if (config.sanitizer_mode == SanitizerMode::ManualMention
-                    || config.sanitizer_mode == SanitizerMode::ManualBoth)
-                    && message.kind == MessageType::Reply =>
-            {
-                match message.referenced_message.as_deref() {
-                    Some(ref_msg) => ref_msg,
-                    None => return Ok(()),
-                }
-            }
-            _ => return Ok(()),
-        },
-    };
+    let mut target_message = message;
+    let mut all_links = get_links(target_message);
 
-    let url = match UrlProcessor::try_new(&message.content, false) {
-        Some(url) => url,
-        None => return Ok(()),
-    };
+    if all_links.is_empty() {
+        let fallback = if let Some(config) = server_config.as_ref()
+            && (config.sanitizer_mode == SanitizerMode::ManualMention
+                || config.sanitizer_mode == SanitizerMode::ManualBoth)
+            && message.kind == MessageType::Reply
+        {
+            message.referenced_message.as_deref()
+        } else {
+            None
+        };
 
-    let original_url = url.get_original_url().expect("Original URL was not found");
-    let output = url
-        .capture_url()
-        .await
-        .and_then(|captures| captures.format_output())
-        .ok_or_else(|| anyhow::anyhow!("Failed to process URL"))?;
+        // Updates the target message to ref_msg
+        if let Some(ref_msg) = fallback {
+            target_message = ref_msg;
+            all_links = get_links(target_message);
+        }
+    }
 
-    let mut components = Vec::new();
-    components.push(Component::Button(Button {
-        id: None,
-        custom_id: None,
-        disabled: false,
-        emoji: Some(EmojiReactionType::Unicode {
-            name: "🔗".to_string(),
-        }),
-        label: Some("Open Link".to_string()),
-        style: ButtonStyle::Link,
-        url: Some(original_url),
-        sku_id: None,
-    }));
+    // Exits early if no links are found
+    if all_links.is_empty() {
+        return Ok(());
+    }
+
+    let mut combined_outputs = Vec::new();
+    let mut processed_urls = Vec::new();
+
+    for link in &all_links {
+        let Some(url) = UrlProcessor::try_new(link, false) else {
+            continue;
+        };
+
+        let Some(original_url) = url.get_original_url() else {
+            tracing::error!("Original URL was not found.");
+            continue;
+        };
+
+        let Some(captures) = url.capture_url().await else {
+            return Err(anyhow::anyhow!("Failed to process URL"));
+        };
+
+        let Some(output) = captures.format_output() else {
+            return Err(anyhow::anyhow!("Failed to process URL"));
+        };
+
+        combined_outputs.push(output);
+        processed_urls.push(original_url);
+    }
+
+    if combined_outputs.is_empty() {
+        return Ok(());
+    }
+
+    let mut all_buttons = Vec::new();
+    let total_successes = processed_urls.len();
+
+    for (idx, original_url) in processed_urls.into_iter().enumerate() {
+        let label = if idx != 0 || total_successes > 1 {
+            format!("Open Link {}", idx + 1)
+        } else {
+            "Open Link".to_string()
+        };
+
+        all_buttons.push(Component::Button(Button {
+            id: None,
+            custom_id: None,
+            disabled: false,
+            emoji: Some(EmojiReactionType::Unicode {
+                name: "🔗".to_string(),
+            }),
+            label: Some(label),
+            style: ButtonStyle::Link,
+            url: Some(original_url),
+            sku_id: None,
+        }));
+    }
 
     // Adds a delete button if config allows it and it's in a guild.
     if server_config
@@ -73,7 +109,7 @@ pub async fn process_message(
         let delete_emoji = EmojiReactionType::Unicode {
             name: "🗑️".to_string(),
         };
-        components.push(Component::Button(Button {
+        all_buttons.push(Component::Button(Button {
             id: None,
             custom_id: Some("delete".to_owned()),
             disabled: false,
@@ -85,15 +121,22 @@ pub async fn process_message(
         }));
     }
 
-    let components = Component::ActionRow(ActionRow {
-        id: None,
-        components,
-    });
+    let final_content = combined_outputs.join("\n");
+
+    let components: Vec<Component> = all_buttons
+        .chunks(5)
+        .map(|chunk| {
+            Component::ActionRow(ActionRow {
+                id: None,
+                components: chunk.to_vec(),
+            })
+        })
+        .collect();
 
     let bot_response = client
         .create_message(message.channel_id)
-        .content(&output)
-        .components(&[components])
+        .content(&final_content)
+        .components(&components)
         .reply(message.id)
         .allowed_mentions(Some(&AllowedMentions {
             replied_user: false,

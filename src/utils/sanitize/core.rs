@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 use anyhow::{Context, Ok};
 use regex::{Regex, RegexSet, RegexSetBuilder};
 use scraper::Selector;
+use twilight_model::channel::Message;
 
 // Regex's for capturing urls.
 const INSTAGRAM_URL_PATTERN: &str =
@@ -72,6 +73,29 @@ pub fn contains_url(input: &str) -> bool {
         || input.contains("twitch.tv")
         || input.contains("twitter.com")
         || input.contains("x.com")
+}
+
+// // Checks if more than 1 url is present in the user input.
+// pub fn contains_multi_url(input: &str) -> bool {
+//     let input = input.to_lowercase();
+//     input
+//         .split_whitespace()
+//         .filter(|word| contains_url(word))
+//         .take(2)
+//         .count()
+//         == 2
+// }
+
+pub fn get_links(msg: &Message) -> Vec<&str> {
+    msg.content
+        .split_whitespace()
+        .filter(|word| contains_url(word))
+        .fold(Vec::new(), |mut unique, word| {
+            if !unique.contains(&word) {
+                unique.push(word);
+            }
+            unique
+        })
 }
 
 impl Platform {
