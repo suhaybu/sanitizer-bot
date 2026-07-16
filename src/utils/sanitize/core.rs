@@ -75,17 +75,6 @@ pub fn contains_url(input: &str) -> bool {
         || input.contains("x.com")
 }
 
-// // Checks if more than 1 url is present in the user input.
-// pub fn contains_multi_url(input: &str) -> bool {
-//     let input = input.to_lowercase();
-//     input
-//         .split_whitespace()
-//         .filter(|word| contains_url(word))
-//         .take(2)
-//         .count()
-//         == 2
-// }
-
 pub fn get_links(msg: &Message) -> Vec<&str> {
     msg.content
         .split_whitespace()
