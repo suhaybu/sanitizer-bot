@@ -74,15 +74,16 @@ async fn handle_message_delete(ctx: MessageDelete, client: &Client) -> anyhow::R
     match matched_bot_response {
         Some(response_map) => {
             tracing::debug!("Response match found for message ID: {}", ctx.id);
-            client
+            if let Err(e) = client
                 .delete_message(
                     Id::new(response_map.channel_id),
                     Id::new(response_map.bot_message_id),
                 )
-                .await?;
-
+                .await
+            {
+                tracing::debug!("Bot message already gone (likely race): {:?}", e);
+            }
             ResponseMap::delete_entry(ctx.id.get()).await?;
-
             Ok(())
         }
         None => {
@@ -217,14 +218,16 @@ async fn handle_component(
     }
 }
 
+/// These handles delete button for both Interaction & OnMessage invocation of Sanitize.
+/// Expected to be called ONLY in Guild Context, NOT in PrivateChannel Context.
 async fn handle_delete_button(interaction: &Interaction, client: &Client) -> anyhow::Result<()> {
-    let Some(ref bot_message) = interaction.message else {
-        tracing::debug!("Delete button pressed but no message found");
-        return Ok(());
+    let Some(ref bot_msg) = interaction.message else {
+        anyhow::bail!("Delete button pressed but no message found")
     };
 
-    let user_message = client
-        .message(bot_message.channel_id, bot_message.id)
+    // Have to get the message again via REST so that we can access the referenced message.
+    let msg = client
+        .message(bot_msg.channel_id, bot_msg.id)
         .await?
         .model()
         .await?;
@@ -240,39 +243,34 @@ async fn handle_delete_button(interaction: &Interaction, client: &Client) -> any
         return Ok(());
     }
 
-    let interaction_user_id = interaction
-        .member
-        .as_ref()
-        .and_then(|member| member.user.as_ref().map(|user| user.id))
-        .or_else(|| interaction.user.as_ref().map(|user| user.id))
+    // This is the user_id of who invoked the Delete button.
+    let invoker_id = interaction
+        .author_id()
         .ok_or_else(|| anyhow::anyhow!("User ID could not be found in interaction."))?;
 
-    let user_has_permission = match server_config.delete_permission {
+    let invoker_has_perm = match server_config.delete_permission {
         DeletePermission::Everyone => true,
         DeletePermission::Disabled => false,
         DeletePermission::AuthorAndMods => {
-            let author_id = user_message
-                .referenced_message
-                .as_ref()
-                .map(|msg| msg.author.id);
+            let author_id = msg.referenced_message.as_ref().map(|msg| msg.author.id);
 
-            let is_author = author_id.map_or(false, |author_id| author_id == interaction_user_id);
+            let is_author = author_id.is_some_and(|author_id| author_id == invoker_id);
 
             let has_manage_message = interaction
                 .member
                 .as_ref()
                 .and_then(|m| m.permissions)
-                .map_or(false, |perms| perms.contains(Permissions::MANAGE_MESSAGES));
+                .is_some_and(|perms| perms.contains(Permissions::MANAGE_MESSAGES));
 
             is_author || has_manage_message
         }
     };
 
     // Early exit and a message to the user if user has insufficient permissions.
-    if !user_has_permission {
+    if !invoker_has_perm {
         tracing::debug!(
             "User {} does not have permission to delete this message.",
-            interaction_user_id
+            invoker_id
         );
 
         let container = ContainerBuilder::new()
@@ -299,33 +297,40 @@ async fn handle_delete_button(interaction: &Interaction, client: &Client) -> any
         return Ok(());
     };
 
-    // Delete bot's response.
-    client
-        .delete_message(bot_message.channel_id, bot_message.id)
-        .await?;
-    tracing::debug!(
-        "Deleted bot message {} in channel {}",
-        bot_message.id,
-        bot_message.channel_id
-    );
+    // Attempts to Delete bot's response.
+    match client.delete_message(bot_msg.channel_id, bot_msg.id).await {
+        Ok(_) => tracing::debug!(
+            "Deleted bot message {} in channel {}",
+            bot_msg.id,
+            bot_msg.channel_id
+        ),
+        Err(e) => {
+            tracing::debug!("Bot message already gone (likely race): {:?}", e);
+            return Ok(());
+        }
+    }
 
     // Removes the now-stale response_map entry so a later deletion of the
     // original message doesn't try to re-delete this already-deleted bot message.
-    if let Some(referenced_message) = user_message.referenced_message.as_ref() {
+    if let Some(referenced_message) = msg.referenced_message.as_ref() {
         if let Err(e) = ResponseMap::delete_entry(referenced_message.id.get()).await {
             tracing::warn!("Failed to delete response_map entry: {:?}", e);
         }
     }
 
+    // Handles unsupressing original embed.
     if server_config.hide_original_embed {
-        let referenced_message = user_message
+        let referenced_message = msg
             .referenced_message
             .as_ref()
             .context("No referenced message found to unsuppress")?;
 
+        let current_flags = referenced_message.flags.unwrap_or(MessageFlags::empty());
+        let new_flags = current_flags - MessageFlags::SUPPRESS_EMBEDS;
+
         if let Err(e) = client
             .update_message(referenced_message.channel_id, referenced_message.id)
-            .flags(MessageFlags::empty())
+            .flags(new_flags)
             .await
         {
             tracing::warn!("Failed to unsuppress original message embed: {:?}", e);
