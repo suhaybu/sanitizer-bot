@@ -159,8 +159,9 @@ async fn prerun_init() -> anyhow::Result<()> {
     let _ = dotenvy::dotenv();
 
     // Initialize logging with tracing.
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(Level::INFO.as_str()));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new(format!("{},turso_sync_engine=warn", Level::INFO.as_str()))
+    });
 
     let time_format = format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]");
     let timer = OffsetTime::new(UtcOffset::UTC, time_format);

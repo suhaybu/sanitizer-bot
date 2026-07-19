@@ -1,12 +1,13 @@
+//! This code was originally used libsql and was ported to turso using an LLM
+
 use anyhow::Context;
-use libsql::params;
 use serde::{Deserialize, Serialize};
 use twilight_model::{
     channel::Message,
     id::{Id, marker::MessageMarker},
 };
 
-use super::connection::{get_connection, sync_database};
+use super::connection::{WRITE_LOCK, get_connection, request_push};
 use crate::discord::models::{DeletePermission, SanitizerMode};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -36,7 +37,7 @@ impl ResponseMap {
     }
 
     pub async fn save(&self) -> anyhow::Result<()> {
-        let conn = get_connection()?;
+        let conn = get_connection().await?;
 
         let sql = r#"
             INSERT OR REPLACE INTO response_map
@@ -44,17 +45,20 @@ impl ResponseMap {
             VALUES (?, ?, ?, ?)
         "#;
 
-        conn.execute(
-            sql,
-            params![
-                self.user_message_id as i64,
-                self.bot_message_id as i64,
-                self.guild_id.map(|id| id as i64),
-                self.channel_id as i64,
-            ],
-        )
-        .await
-        .context("Failed to save response map")?;
+        {
+            let _guard = WRITE_LOCK.lock().await;
+            conn.execute(
+                sql,
+                (
+                    self.user_message_id as i64,
+                    self.bot_message_id as i64,
+                    self.guild_id.map(|id| id as i64),
+                    self.channel_id as i64,
+                ),
+            )
+            .await
+            .context("Failed to save response map")?;
+        }
 
         tracing::debug!(
             "Saved response map: user_msg={}, bot_msg={}, guild_id={:?}, channel_id={}",
@@ -64,17 +68,13 @@ impl ResponseMap {
             self.channel_id
         );
 
-        tokio::spawn(async move {
-            if let Err(e) = sync_database().await {
-                tracing::warn!("Failed to sync database after write: {:?}", e);
-            }
-        });
+        request_push();
 
         Ok(())
     }
 
     pub async fn find_match(deleted_message_id: Id<MessageMarker>) -> anyhow::Result<Option<Self>> {
-        let conn = get_connection()?;
+        let conn = get_connection().await?;
 
         let sql = r#"
             SELECT user_message_id, bot_message_id, guild_id, channel_id
@@ -82,13 +82,13 @@ impl ResponseMap {
             WHERE user_message_id = ?
         "#;
 
-        let stmt = conn
+        let mut stmt = conn
             .prepare(sql)
             .await
             .context("Failed to prepare SELECT statement")?;
 
         let mut rows = stmt
-            .query(params![deleted_message_id.get() as i64])
+            .query([deleted_message_id.get() as i64])
             .await
             .context("Failed to execute SELECT statement")?;
 
@@ -113,24 +113,23 @@ impl ResponseMap {
     }
 
     pub async fn delete_entry(user_message_id: u64) -> anyhow::Result<()> {
-        let conn = get_connection()?;
+        let conn = get_connection().await?;
 
         let sql = "DELETE FROM response_map WHERE user_message_id = ?";
 
-        conn.execute(sql, params![user_message_id as i64])
-            .await
-            .context("Failed to delete from response map")?;
+        {
+            let _guard = WRITE_LOCK.lock().await;
+            conn.execute(sql, [user_message_id as i64])
+                .await
+                .context("Failed to delete from response map")?;
+        }
 
         tracing::debug!(
             "Deleted response map for user_message_id={}",
             user_message_id
         );
 
-        tokio::spawn(async move {
-            if let Err(e) = sync_database().await {
-                tracing::warn!("Failed to sync database after delete: {:?}", e);
-            }
-        });
+        request_push();
 
         Ok(())
     }
@@ -138,7 +137,7 @@ impl ResponseMap {
 
 impl ServerConfig {
     pub async fn save(&self) -> anyhow::Result<()> {
-        let conn = get_connection()?;
+        let conn = get_connection().await?;
 
         let sql = r#"
             INSERT OR REPLACE INTO server_configs
@@ -146,26 +145,25 @@ impl ServerConfig {
             VALUES (?, ?, ?, ?)
         "#;
 
-        conn.execute(
-            sql,
-            params![
-                self.guild_id as i64,
-                self.sanitizer_mode as i32,
-                self.delete_permission as i32,
-                self.hide_original_embed
-            ],
-        )
-        .await
-        .context("Failed to save server config")?;
+        {
+            let _guard = WRITE_LOCK.lock().await;
+            conn.execute(
+                sql,
+                (
+                    self.guild_id as i64,
+                    self.sanitizer_mode as i32,
+                    self.delete_permission as i32,
+                    self.hide_original_embed,
+                ),
+            )
+            .await
+            .context("Failed to save server config")?;
+        }
 
         tracing::debug!("Saved config for guild {}", self.guild_id);
         tracing::debug!("{:?}", self);
 
-        tokio::spawn(async move {
-            if let Err(e) = sync_database().await {
-                tracing::warn!("Failed to sync database after write: {:?}", e);
-            }
-        });
+        request_push();
 
         Ok(())
     }
@@ -190,7 +188,7 @@ impl ServerConfig {
     }
 
     async fn get(guild_id: u64) -> anyhow::Result<Option<Self>> {
-        let conn = get_connection()?;
+        let conn = get_connection().await?;
 
         let sql = r#"
             SELECT guild_id, sanitizer_mode, delete_permission, hide_original_embed
@@ -198,13 +196,13 @@ impl ServerConfig {
             WHERE guild_id = ?
         "#;
 
-        let stmt = conn
+        let mut stmt = conn
             .prepare(sql)
             .await
             .context("Failed to prepare SELECT statement")?;
 
         let mut rows = stmt
-            .query(params![guild_id as i64])
+            .query([guild_id as i64])
             .await
             .context("Failed to execute SELECT query")?;
 
@@ -223,12 +221,12 @@ impl ServerConfig {
     }
 
     // pub async fn delete(guild_id: u64) -> anyhow::Result<()> {
-    //    let conn = get_connection()
+    //    let conn = get_connection().await
     //        .context("Failed to get database connection")?;
 
     //     let sql = "DELETE FROM Sanitizer WHERE guild_id = ?";
 
-    //     conn.execute(sql, params![guild_id as i64])
+    //     conn.execute(sql, [guild_id as i64])
     //         .await
     //         .context("Failed to delete server config")?;
 

@@ -11,12 +11,11 @@ edition = "2024"
 anyhow = "1"
 dotenvy = "0.15"
 serde = { version = "1", features = ["derive"] }
-libsql = "0.9"
+turso = { version = "0.7", features = ["sync"] }
 regex = "1.13"
 dashmap = "6.2"
 lru = "0.18"
 scraper = "0.27"
-futures-util = { version = "0.3", default-features = false }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 time = { version = "0.3", features = ["macros"] }
 tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "signal", "time"] }

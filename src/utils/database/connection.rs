@@ -1,38 +1,42 @@
-use std::sync::LazyLock;
-
-use anyhow::Context;
-use libsql::{Connection, Database};
 use std::time::Duration;
 
-static DB: LazyLock<Database> = LazyLock::new(|| {
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            init_database_internal()
-                .await
-                .expect("Failed to initialize database")
-        })
-    })
-});
+use anyhow::Context;
+use tokio::sync::{Notify, OnceCell};
+use turso::Connection;
+use turso::sync::{Builder, Database};
+
+static DB: OnceCell<Database> = OnceCell::const_new();
+static PUSH_NOTIFY: Notify = Notify::const_new();
+
+/// Guards every write to the local db file - both application writes
+/// (INSERT/UPDATE/DELETE via `conn.execute`) and sync engine pushes.
+pub static WRITE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// Initialize database connection during pre run (main.rs).
 pub async fn init_database() -> anyhow::Result<()> {
-    // Force initialization of the lazy static, and warm up DB connecton.
-    let _ = &*DB;
-    let conn = get_connection()?;
+    let db = init_database_internal().await?;
+    DB.set(db)
+        .map_err(|_| anyhow::anyhow!("Database already initialized"))?;
+
+    let conn = get_connection().await?;
 
     // Create tables
     create_tables(&conn).await?;
 
-    // Perform initial database sync with small backoff to avoid startup races.
+    // Single background worker that serializes/coalesces all push requests
+    // so writes never race each other against the remote.
+    tokio::spawn(push_worker());
+
+    // Perform initial database pull with small backoff to avoid startup races.
     tokio::spawn(async {
         let mut delay = Duration::from_millis(250);
         let mut last_err: Option<anyhow::Error> = None;
-        // Will retry initial database sync 3 times.
+        // Will retry initial database pull 3 times.
         for attempt in 1..=3 {
-            match sync_database().await {
+            match pull_database().await {
                 Ok(()) => {
                     tracing::debug!(
-                        "Initial database sync completed successfully (attempt {})",
+                        "Initial database pull completed successfully (attempt {})",
                         attempt
                     );
                     return;
@@ -40,7 +44,7 @@ pub async fn init_database() -> anyhow::Result<()> {
                 Err(e) => {
                     last_err = Some(e);
                     tracing::debug!(
-                        "Initial database sync failed (attempt {}), retrying after {:?}",
+                        "Initial database pull failed (attempt {}), retrying after {:?}",
                         attempt,
                         delay
                     );
@@ -50,20 +54,27 @@ pub async fn init_database() -> anyhow::Result<()> {
             }
         }
         if let Some(e) = last_err {
-            tracing::error!("Failed initial database sync after retries: {:?}", e);
+            tracing::error!("Failed initial database pull after retries: {:?}", e);
         }
     });
 
     Ok(())
 }
 
-pub fn get_connection() -> anyhow::Result<Connection> {
+fn db() -> anyhow::Result<&'static Database> {
+    DB.get()
+        .context("Database has not been initialized; call init_database() first")
+}
+
+pub async fn get_connection() -> anyhow::Result<Connection> {
+    let db = db()?;
+
     // Retry a few times to handle transient lock/availability during startup
     const MAX_RETRIES: u32 = 5;
     const INITIAL_DELAY: Duration = Duration::from_millis(100);
 
     for attempt in 1..=MAX_RETRIES {
-        match DB.connect() {
+        match db.connect().await {
             Ok(conn) => return Ok(conn),
             Err(e) => {
                 if attempt == MAX_RETRIES {
@@ -77,36 +88,60 @@ pub fn get_connection() -> anyhow::Result<Connection> {
                     delay_ms = delay.as_millis(),
                     "Database connection failed, retrying"
                 );
-                std::thread::sleep(delay);
+                tokio::time::sleep(delay).await;
             }
         }
     }
     unreachable!("retry loop must return or error out")
 }
 
-pub async fn sync_database() -> anyhow::Result<()> {
-    tracing::debug!("Syncing database with remote");
+/// Ask the background worker to push local writes to the remote.
+pub fn request_push() {
+    PUSH_NOTIFY.notify_one();
+}
 
-    match DB.sync().await {
-        Ok(_) => {
-            tracing::debug!("Database sync completed");
-            Ok(())
+async fn push_worker() {
+    loop {
+        PUSH_NOTIFY.notified().await;
+        if let Err(e) = push_database().await {
+            tracing::warn!("Failed to push database after write: {:?}", e);
         }
-        Err(e) if e.to_string().contains("Sync is not supported") => {
-            tracing::debug!("Skipping sync - running in local mode");
-            Ok(())
-        }
-        Err(e) => Err(e).context("Failed to sync database with remote"),
     }
+}
+
+/// Push local writes to the remote directly. Prefer `request_push()` for
+/// writes so pushes stay serialized; this is exposed for cases (e.g. tests,
+/// or explicit "sync now" flows) that need to push and observe the result.
+async fn push_database() -> anyhow::Result<()> {
+    let _guard = WRITE_LOCK.lock().await;
+    tracing::debug!("Pushing local writes to remote");
+    db()?
+        .push()
+        .await
+        .context("Failed to push local writes to remote")?;
+    Ok(())
+}
+
+pub async fn pull_database() -> anyhow::Result<()> {
+    tracing::debug!("Pulling changes from remote");
+    db()?
+        .pull()
+        .await
+        .context("Failed to pull changes from remote")?;
+    tracing::debug!("Database pull completed");
+    Ok(())
 }
 
 async fn init_database_internal() -> anyhow::Result<Database> {
     let url = std::env::var("TURSO_DATABASE_URL").context("TURSO_DATABASE_URL must be set")?;
     let auth_token = std::env::var("TURSO_AUTH_TOKEN").context("TURSO_AUTH_TOKEN must be set")?;
 
-    tracing::info!("Initializing Turso Embedded Replica database");
+    tracing::info!("Initializing Turso synced database");
 
-    let db = libsql::Builder::new_remote_replica("local.db", url, auth_token)
+    let db = Builder::new_remote("local.db")
+        .with_remote_url(&url)
+        .with_auth_token(&auth_token)
+        .bootstrap_if_empty(true)
         .build()
         .await
         .context("Failed to build database connection")?;
@@ -116,6 +151,10 @@ async fn init_database_internal() -> anyhow::Result<Database> {
 
 async fn create_tables(conn: &Connection) -> anyhow::Result<()> {
     tracing::debug!("Ensuring database schema exists");
+
+    conn.execute("PRAGMA busy_timeout = 5000", ())
+        .await
+        .context("Failed to set busy_timeout")?;
 
     let create_server_configs_table = r#"
         CREATE TABLE IF NOT EXISTS server_configs (
