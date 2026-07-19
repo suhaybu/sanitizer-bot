@@ -177,10 +177,15 @@ pub async fn process_message(
     if server_config.hide_original_embed {
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-        client
-            .update_message(message.channel_id, message.id)
-            .flags(MessageFlags::SUPPRESS_EMBEDS)
-            .await?;
+        if ResponseMap::find_match(message.id).await?.is_some() {
+            if let Err(e) = client
+                .update_message(message.channel_id, message.id)
+                .flags(MessageFlags::SUPPRESS_EMBEDS)
+                .await
+            {
+                tracing::debug!("Failed to suppress embed (likely already deleted): {:?}", e);
+            }
+        }
     }
 
     Ok(())
