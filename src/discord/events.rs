@@ -67,6 +67,7 @@ pub async fn handle_event(event: Event, client: Arc<Client>) {
     }
 }
 
+/// Handles twilight_gateway::Event::MessageDelete events.
 async fn handle_message_delete(ctx: MessageDelete, client: &Client) -> anyhow::Result<()> {
     let matched_bot_response = ResponseMap::find_match(ctx.id).await?;
 
@@ -307,6 +308,14 @@ async fn handle_delete_button(interaction: &Interaction, client: &Client) -> any
         bot_message.id,
         bot_message.channel_id
     );
+
+    // Removes the now-stale response_map entry so a later deletion of the
+    // original message doesn't try to re-delete this already-deleted bot message.
+    if let Some(referenced_message) = user_message.referenced_message.as_ref() {
+        if let Err(e) = ResponseMap::delete_entry(referenced_message.id.get()).await {
+            tracing::warn!("Failed to delete response_map entry: {:?}", e);
+        }
+    }
 
     if server_config.hide_original_embed {
         let referenced_message = user_message
