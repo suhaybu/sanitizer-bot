@@ -1,37 +1,89 @@
+//! This code originally used libsql and was ported to turso using an LLM.
+
+use std::ops::Deref;
 use std::time::Duration;
 
 use anyhow::Context;
-use tokio::sync::{Notify, OnceCell};
+use tokio::sync::{Mutex, Notify, OnceCell, mpsc};
 use turso::Connection;
 use turso::sync::{Builder, Database};
 
+const READ_POOL_SIZE: usize = 4;
+
 static DB: OnceCell<Database> = OnceCell::const_new();
+static WRITE_CONN: OnceCell<Connection> = OnceCell::const_new();
+static READ_POOL: OnceCell<ReadPool> = OnceCell::const_new();
 static PUSH_NOTIFY: Notify = Notify::const_new();
 
-/// Guards every write to the local db file - both application writes
-/// (INSERT/UPDATE/DELETE via `conn.execute`) and sync engine pushes.
 pub static WRITE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+struct ReadPool {
+    sender: mpsc::Sender<Connection>,
+    receiver: Mutex<mpsc::Receiver<Connection>>,
+}
+
+/// A checked-out read connection. Returned to the pool automatically on drop.
+pub struct ReadConnGuard {
+    conn: Option<Connection>,
+    returner: mpsc::Sender<Connection>,
+}
+
+impl Deref for ReadConnGuard {
+    type Target = Connection;
+    fn deref(&self) -> &Connection {
+        self.conn.as_ref().expect("connection taken before drop")
+    }
+}
+
+impl Drop for ReadConnGuard {
+    fn drop(&mut self) {
+        if let Some(conn) = self.conn.take() {
+            // Capacity always has room for this return since it can only be
+            // full when every connection is checked out.
+            let _ = self.returner.try_send(conn);
+        }
+    }
+}
 
 /// Initialize database connection during pre run (main.rs).
 pub async fn init_database() -> anyhow::Result<()> {
     let db = init_database_internal().await?;
+
+    let write_conn = db
+        .connect()
+        .await
+        .context("Failed to open write connection")?;
+
+    let (tx, rx) = mpsc::channel(READ_POOL_SIZE);
+    for i in 0..READ_POOL_SIZE {
+        let conn = db
+            .connect()
+            .await
+            .with_context(|| format!("Failed to open read connection {i}"))?;
+        tx.send(conn)
+            .await
+            .expect("channel just created, cannot be closed");
+    }
+
+    create_tables(&write_conn).await?;
+
     DB.set(db)
         .map_err(|_| anyhow::anyhow!("Database already initialized"))?;
+    WRITE_CONN
+        .set(write_conn)
+        .map_err(|_| anyhow::anyhow!("Write connection already initialized"))?;
+    READ_POOL
+        .set(ReadPool {
+            sender: tx,
+            receiver: Mutex::new(rx),
+        })
+        .map_err(|_| anyhow::anyhow!("Read pool already initialized"))?;
 
-    let conn = get_connection().await?;
-
-    // Create tables
-    create_tables(&conn).await?;
-
-    // Single background worker that serializes/coalesces all push requests
-    // so writes never race each other against the remote.
     tokio::spawn(push_worker());
 
-    // Perform initial database pull with small backoff to avoid startup races.
     tokio::spawn(async {
         let mut delay = Duration::from_millis(250);
         let mut last_err: Option<anyhow::Error> = None;
-        // Will retry initial database pull 3 times.
         for attempt in 1..=3 {
             match pull_database().await {
                 Ok(()) => {
@@ -66,33 +118,32 @@ fn db() -> anyhow::Result<&'static Database> {
         .context("Database has not been initialized; call init_database() first")
 }
 
-pub async fn get_connection() -> anyhow::Result<Connection> {
-    let db = db()?;
+/// The single write connection. Callers MUST hold WRITE_LOCK for the
+/// entire duration they use it.
+pub fn get_write_connection() -> anyhow::Result<&'static Connection> {
+    WRITE_CONN
+        .get()
+        .context("Write connection has not been initialized; call init_database() first")
+}
 
-    // Retry a few times to handle transient lock/availability during startup
-    const MAX_RETRIES: u32 = 5;
-    const INITIAL_DELAY: Duration = Duration::from_millis(100);
+/// Checks out one connection from the read pool. Waits if all are
+/// currently in use. Safe to call concurrently from any number of tasks —
+/// the returned guard hands the connection back automatically on drop.
+pub async fn get_read_connection() -> anyhow::Result<ReadConnGuard> {
+    let pool = READ_POOL
+        .get()
+        .context("Read pool has not been initialized; call init_database() first")?;
 
-    for attempt in 1..=MAX_RETRIES {
-        match db.connect().await {
-            Ok(conn) => return Ok(conn),
-            Err(e) => {
-                if attempt == MAX_RETRIES {
-                    return Err(e)
-                        .context("Failed to get database connection after multiple retries.");
-                }
+    let mut receiver = pool.receiver.lock().await;
+    let conn = receiver
+        .recv()
+        .await
+        .context("Read connection pool is closed")?;
 
-                let delay = INITIAL_DELAY * 2_u32.pow(attempt - 1);
-                tracing::warn!(
-                    attempt,
-                    delay_ms = delay.as_millis(),
-                    "Database connection failed, retrying"
-                );
-                tokio::time::sleep(delay).await;
-            }
-        }
-    }
-    unreachable!("retry loop must return or error out")
+    Ok(ReadConnGuard {
+        conn: Some(conn),
+        returner: pool.sender.clone(),
+    })
 }
 
 /// Ask the background worker to push local writes to the remote.
@@ -109,9 +160,6 @@ async fn push_worker() {
     }
 }
 
-/// Push local writes to the remote directly. Prefer `request_push()` for
-/// writes so pushes stay serialized; this is exposed for cases (e.g. tests,
-/// or explicit "sync now" flows) that need to push and observe the result.
 async fn push_database() -> anyhow::Result<()> {
     let _guard = WRITE_LOCK.lock().await;
     tracing::debug!("Pushing local writes to remote");
@@ -123,6 +171,7 @@ async fn push_database() -> anyhow::Result<()> {
 }
 
 pub async fn pull_database() -> anyhow::Result<()> {
+    let _guard = WRITE_LOCK.lock().await;
     tracing::debug!("Pulling changes from remote");
     db()?
         .pull()

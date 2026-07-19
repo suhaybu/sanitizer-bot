@@ -1,4 +1,4 @@
-//! This code was originally used libsql and was ported to turso using an LLM
+//! This code originally used libsql and was ported to turso using an LLM.
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
@@ -7,7 +7,7 @@ use twilight_model::{
     id::{Id, marker::MessageMarker},
 };
 
-use super::connection::{WRITE_LOCK, get_connection, request_push};
+use super::connection::{WRITE_LOCK, get_read_connection, get_write_connection, request_push};
 use crate::discord::models::{DeletePermission, SanitizerMode};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -37,8 +37,6 @@ impl ResponseMap {
     }
 
     pub async fn save(&self) -> anyhow::Result<()> {
-        let conn = get_connection().await?;
-
         let sql = r#"
             INSERT OR REPLACE INTO response_map
             (user_message_id, bot_message_id, guild_id, channel_id)
@@ -47,6 +45,7 @@ impl ResponseMap {
 
         {
             let _guard = WRITE_LOCK.lock().await;
+            let conn = get_write_connection()?;
             conn.execute(
                 sql,
                 (
@@ -73,8 +72,11 @@ impl ResponseMap {
         Ok(())
     }
 
+    // Finds a match for a deleted message using the message's id.
+    // Uses the read pool - no lock needed, safe to run concurrently
+    // with writes/push/pull under WAL.
     pub async fn find_match(deleted_message_id: Id<MessageMarker>) -> anyhow::Result<Option<Self>> {
-        let conn = get_connection().await?;
+        let conn = get_read_connection().await?;
 
         let sql = r#"
             SELECT user_message_id, bot_message_id, guild_id, channel_id
@@ -113,12 +115,11 @@ impl ResponseMap {
     }
 
     pub async fn delete_entry(user_message_id: u64) -> anyhow::Result<()> {
-        let conn = get_connection().await?;
-
         let sql = "DELETE FROM response_map WHERE user_message_id = ?";
 
         {
             let _guard = WRITE_LOCK.lock().await;
+            let conn = get_write_connection()?;
             conn.execute(sql, [user_message_id as i64])
                 .await
                 .context("Failed to delete from response map")?;
@@ -137,8 +138,6 @@ impl ResponseMap {
 
 impl ServerConfig {
     pub async fn save(&self) -> anyhow::Result<()> {
-        let conn = get_connection().await?;
-
         let sql = r#"
             INSERT OR REPLACE INTO server_configs
             (guild_id, sanitizer_mode, delete_permission, hide_original_embed)
@@ -147,6 +146,7 @@ impl ServerConfig {
 
         {
             let _guard = WRITE_LOCK.lock().await;
+            let conn = get_write_connection()?;
             conn.execute(
                 sql,
                 (
@@ -187,8 +187,9 @@ impl ServerConfig {
         }
     }
 
+    // Uses the read pool - no lock needed.
     async fn get(guild_id: u64) -> anyhow::Result<Option<Self>> {
-        let conn = get_connection().await?;
+        let conn = get_read_connection().await?;
 
         let sql = r#"
             SELECT guild_id, sanitizer_mode, delete_permission, hide_original_embed
@@ -221,8 +222,7 @@ impl ServerConfig {
     }
 
     // pub async fn delete(guild_id: u64) -> anyhow::Result<()> {
-    //    let conn = get_connection().await
-    //        .context("Failed to get database connection")?;
+    //    let conn = get_connection()?;
 
     //     let sql = "DELETE FROM Sanitizer WHERE guild_id = ?";
 
