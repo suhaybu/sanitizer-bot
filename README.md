@@ -19,9 +19,9 @@ This project was first implemented in Python which can be found [here](https://g
 
 ## Setup
 
-To host your own instance of the bot on Shuttle, follow along. This project is not affiliated or sponsored by Shuttle, and assumes you have Rust installed on your machine.
+### Self Host
 
-1. Download the release based on your OS and CPU architecture.
+1. Download the release based on your OS and CPU architecture. If your OS is not listed, clone the repository and then build it using cargo. You will need Rust installed.
 
 2. Set the following variables to your enviornment, or in a `.env` file in the same directory as the binary:
 
@@ -74,5 +74,4 @@ Twitter - [@suhayb_u](https://twitter.com/suhayb_u)
 -   [kkScript](https://kkscript.com/)
 -   [InstaFix](https://github.com/Wikidepia/InstaFix)
 -   [FxTwitch](https://github.com/seriaati/fxtwitch)
--   [FxReddit](https://github.com/MinnDevelopment/fxreddit)
--   ~~[QuickVids](https://quickvids.app/)~~ (No longer used)
+-   [vxReddit](https://github.com/dylanpdx/vxReddit)

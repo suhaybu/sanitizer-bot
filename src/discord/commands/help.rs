@@ -37,7 +37,7 @@ impl HelpCommand {
         -  **TikTok & Instagram**: Thanks to [kkScript](https://kkscript.com/)\n\
         -  **Instagram** (Fallback): Powered by the awesome [InstaFix](https://github.com/Wikidepia/InstaFix) project\n\
         -  **Twitch**: Thanks to the [FxTwitch](https://github.com/seriaati/fxtwitch) project\n\
-        -  **Reddit**: Thanks to the [FxReddit](https://github.com/MinnDevelopment/fxreddit) project\n\
+        -  **Reddit**: Thanks to the [vxReddit](https://github.com/dylanpdx/vxReddit) project\n\
         -# The code that powers me is publicly sourced [here](https://github.com/suhaybu/sanitizer-bot) on GitHub along with the [Privacy policy](https://github.com/suhaybu/sanitizer-bot/blob/master/PRIVACY.md).\n\
             ")
             .build();

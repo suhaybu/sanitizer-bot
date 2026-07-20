@@ -11,7 +11,7 @@ edition = "2024"
 anyhow = "1"
 dotenvy = "0.15"
 serde = { version = "1", features = ["derive"] }
-turso = { version = "0.7", features = ["sync"] }
+turso = { version = "0.7", default-features = false, features = ["sync"] }
 regex = "1.13"
 dashmap = "6.2"
 lru = "0.18"

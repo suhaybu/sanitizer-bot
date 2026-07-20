@@ -120,7 +120,7 @@ impl Platform {
     const fn replacement_domain(&self) -> &'static str {
         match self {
             Self::Instagram => "kkinstagram.com",
-            Self::Reddit => "rxddit.com",
+            Self::Reddit => "vxreddit.com",
             Self::TikTok => "kktiktok.com",
             Self::Twitch => "fxtwitch.seria.moe",
             Self::Twitter => "fxtwitter.com",
@@ -174,7 +174,13 @@ impl UrlProcessor {
                 let subreddit = captures.name("subreddit")?.as_str();
                 let data = captures.name("data")?.as_str();
 
-                let clean_url = format!("https://{}rxddit.com/{}{}", subdomain, subreddit, data);
+                let clean_url = format!(
+                    "https://{}{}/{}{}",
+                    subdomain,
+                    self.platform.replacement_domain(),
+                    subreddit,
+                    data
+                );
 
                 self.username = Some(subreddit.into());
                 self.clean_url = Some(clean_url);
