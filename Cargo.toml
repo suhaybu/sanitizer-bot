@@ -15,7 +15,7 @@ turso = { version = "0.7", default-features = false, features = ["sync"] }
 regex = "1.13"
 dashmap = "6.2"
 lru = "0.18"
-scraper = "0.27"
+# scraper = "0.27"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 time = { version = "0.3", features = ["macros"] }
 tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "signal", "time"] }
