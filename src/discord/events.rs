@@ -31,10 +31,15 @@ pub async fn handle_event(event: Event, client: Arc<Client>) {
             }
         }
         Event::MessageCreate(ctx) => {
-            // Early exit if message is by bot, or has content with no url, or is a reply.
+            // Early exit if message is by the bot itself.
             if crate::BOT_USER_ID
                 .get()
                 .is_some_and(|&bot_id| ctx.0.author.id == bot_id)
+                // Or if the message content has no URL & is not a reply
+                // Note:
+                //      Messages without URL are expected in SanitizerMode::ManualMention,
+                //      such messages can mention the bot in a reply where the message
+                //      referenced (replied to) has a valid URL.
                 || (!sanitize::contains_url(&ctx.0.content) && !(ctx.0.kind == MessageType::Reply))
                 // Special case: if message contains `—x`, ignore the message completely.
                 || ctx.0.content.contains("—x")
