@@ -42,7 +42,6 @@ pub enum SanitizerMode {
     ManualBoth = 3,
 }
 
-
 impl From<i32> for SanitizerMode {
     fn from(value: i32) -> Self {
         match value {
@@ -90,7 +89,6 @@ pub enum DeletePermission {
     Disabled = 2,
 }
 
-
 impl From<i32> for DeletePermission {
     fn from(value: i32) -> Self {
         match value {
@@ -125,14 +123,12 @@ impl FromStr for DeletePermission {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum HideOriginalEmbed {
     #[default]
     On,
     Off,
 }
-
 
 impl AsRef<str> for HideOriginalEmbed {
     fn as_ref(&self) -> &str {
@@ -150,7 +146,10 @@ impl FromStr for HideOriginalEmbed {
         match s {
             "on" => Ok(Self::On),
             "off" => Ok(Self::Off),
-            _ => Err(anyhow::anyhow!("Unknown hide original embed setting: {}", s)),
+            _ => Err(anyhow::anyhow!(
+                "Unknown hide original embed setting: {}",
+                s
+            )),
         }
     }
 }
@@ -168,10 +167,22 @@ mod tests {
         assert_eq!(SanitizerMode::ManualBoth.as_ref(), "manual_both");
 
         // Test parsing from component IDs using FromStr
-        assert_eq!("automatic".parse::<SanitizerMode>().unwrap(), SanitizerMode::Automatic);
-        assert_eq!("manual_emote".parse::<SanitizerMode>().unwrap(), SanitizerMode::ManualEmote);
-        assert_eq!("manual_mention".parse::<SanitizerMode>().unwrap(), SanitizerMode::ManualMention);
-        assert_eq!("manual_both".parse::<SanitizerMode>().unwrap(), SanitizerMode::ManualBoth);
+        assert_eq!(
+            "automatic".parse::<SanitizerMode>().unwrap(),
+            SanitizerMode::Automatic
+        );
+        assert_eq!(
+            "manual_emote".parse::<SanitizerMode>().unwrap(),
+            SanitizerMode::ManualEmote
+        );
+        assert_eq!(
+            "manual_mention".parse::<SanitizerMode>().unwrap(),
+            SanitizerMode::ManualMention
+        );
+        assert_eq!(
+            "manual_both".parse::<SanitizerMode>().unwrap(),
+            SanitizerMode::ManualBoth
+        );
     }
 
     #[test]
@@ -182,9 +193,18 @@ mod tests {
         assert_eq!(DeletePermission::Disabled.as_ref(), "disabled");
 
         // Test parsing from component IDs using FromStr
-        assert_eq!("author_and_mods".parse::<DeletePermission>().unwrap(), DeletePermission::AuthorAndMods);
-        assert_eq!("everyone".parse::<DeletePermission>().unwrap(), DeletePermission::Everyone);
-        assert_eq!("disabled".parse::<DeletePermission>().unwrap(), DeletePermission::Disabled);
+        assert_eq!(
+            "author_and_mods".parse::<DeletePermission>().unwrap(),
+            DeletePermission::AuthorAndMods
+        );
+        assert_eq!(
+            "everyone".parse::<DeletePermission>().unwrap(),
+            DeletePermission::Everyone
+        );
+        assert_eq!(
+            "disabled".parse::<DeletePermission>().unwrap(),
+            DeletePermission::Disabled
+        );
     }
 
     #[test]
@@ -194,46 +214,88 @@ mod tests {
         assert_eq!(HideOriginalEmbed::Off.as_ref(), "off");
 
         // Test parsing from component IDs using FromStr
-        assert_eq!("on".parse::<HideOriginalEmbed>().unwrap(), HideOriginalEmbed::On);
-        assert_eq!("off".parse::<HideOriginalEmbed>().unwrap(), HideOriginalEmbed::Off);
+        assert_eq!(
+            "on".parse::<HideOriginalEmbed>().unwrap(),
+            HideOriginalEmbed::On
+        );
+        assert_eq!(
+            "off".parse::<HideOriginalEmbed>().unwrap(),
+            HideOriginalEmbed::Off
+        );
     }
 
     #[test]
     fn test_settings_menu_type_component_ids() {
         // Test AsRef<str> conversion
         assert_eq!(SettingsMenuType::SanitizerMode.as_ref(), "sanitizer_mode");
-        assert_eq!(SettingsMenuType::DeletePermission.as_ref(), "delete_permission");
-        assert_eq!(SettingsMenuType::HideOriginalEmbed.as_ref(), "hide_original_embed");
+        assert_eq!(
+            SettingsMenuType::DeletePermission.as_ref(),
+            "delete_permission"
+        );
+        assert_eq!(
+            SettingsMenuType::HideOriginalEmbed.as_ref(),
+            "hide_original_embed"
+        );
 
         // Test parsing from component IDs using FromStr
-        assert_eq!("sanitizer_mode".parse::<SettingsMenuType>().unwrap(), SettingsMenuType::SanitizerMode);
-        assert_eq!("delete_permission".parse::<SettingsMenuType>().unwrap(), SettingsMenuType::DeletePermission);
-        assert_eq!("hide_original_embed".parse::<SettingsMenuType>().unwrap(), SettingsMenuType::HideOriginalEmbed);
+        assert_eq!(
+            "sanitizer_mode".parse::<SettingsMenuType>().unwrap(),
+            SettingsMenuType::SanitizerMode
+        );
+        assert_eq!(
+            "delete_permission".parse::<SettingsMenuType>().unwrap(),
+            SettingsMenuType::DeletePermission
+        );
+        assert_eq!(
+            "hide_original_embed".parse::<SettingsMenuType>().unwrap(),
+            SettingsMenuType::HideOriginalEmbed
+        );
     }
 
     #[test]
     fn test_roundtrip_serialization() {
         // Test that AsRef<str> and FromStr are consistent
-        
+
         // SanitizerMode
-        for variant in [SanitizerMode::Automatic, SanitizerMode::ManualEmote, SanitizerMode::ManualMention, SanitizerMode::ManualBoth] {
+        for variant in [
+            SanitizerMode::Automatic,
+            SanitizerMode::ManualEmote,
+            SanitizerMode::ManualMention,
+            SanitizerMode::ManualBoth,
+        ] {
             let id = variant.as_ref();
             let parsed = id.parse::<SanitizerMode>().unwrap();
-            assert_eq!(variant, parsed, "Failed roundtrip for SanitizerMode::{:?}", variant);
+            assert_eq!(
+                variant, parsed,
+                "Failed roundtrip for SanitizerMode::{:?}",
+                variant
+            );
         }
-        
+
         // DeletePermission
-        for variant in [DeletePermission::AuthorAndMods, DeletePermission::Everyone, DeletePermission::Disabled] {
+        for variant in [
+            DeletePermission::AuthorAndMods,
+            DeletePermission::Everyone,
+            DeletePermission::Disabled,
+        ] {
             let id = variant.as_ref();
             let parsed = id.parse::<DeletePermission>().unwrap();
-            assert_eq!(variant, parsed, "Failed roundtrip for DeletePermission::{:?}", variant);
+            assert_eq!(
+                variant, parsed,
+                "Failed roundtrip for DeletePermission::{:?}",
+                variant
+            );
         }
-        
+
         // HideOriginalEmbed
         for variant in [HideOriginalEmbed::On, HideOriginalEmbed::Off] {
             let id = variant.as_ref();
             let parsed = id.parse::<HideOriginalEmbed>().unwrap();
-            assert_eq!(variant, parsed, "Failed roundtrip for HideOriginalEmbed::{:?}", variant);
+            assert_eq!(
+                variant, parsed,
+                "Failed roundtrip for HideOriginalEmbed::{:?}",
+                variant
+            );
         }
     }
 
