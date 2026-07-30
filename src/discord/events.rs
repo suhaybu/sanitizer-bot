@@ -36,6 +36,8 @@ pub async fn handle_event(event: Event, client: Arc<Client>) {
                 .get()
                 .is_some_and(|&bot_id| ctx.0.author.id == bot_id)
                 || (!sanitize::contains_url(&ctx.0.content) && !(ctx.0.kind == MessageType::Reply))
+                // Special case: if message contains `—x`, ignore the message completely.
+                || ctx.0.content.contains("—x")
             {
                 return;
             }
