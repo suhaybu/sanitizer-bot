@@ -8,7 +8,17 @@ use twilight_model::channel::Message;
 const INSTAGRAM_URL_PATTERN: &str =
     r"(?i)https?://(?:www\.)?instagram\.com/(?P<type>reels?|p)(?P<data>/[^/\s?)\]`|]+)";
 
-const REDDIT_URL_PATTERN: &str = r"(?i)https?://(?P<subdomain>(?:www\.|old\.)?)reddit\.com/(?P<subreddit>r/[^/]+)(?P<data>/[^?\s)\]`|]*)?";
+const REDDIT_URL_PATTERN: &str = r#"(?xi)
+    https?://
+    (?P<subdomain>(?:www\.|old\.|np\.|amp\.)?)
+    reddit\.com/
+    (?P<subreddit>r/[^/]+)
+    (?P<data>
+        /comments/[^/?\s)\]}>,.!;:'"`|]+(?:/[^?\s)\]}>,.!;:'"`|]*)*
+      |
+        /s/[^/?\s)\]}>,.!;:'"`|]+
+    )
+"#;
 
 const TIKTOK_URL_PATTERN: &str =
     r"(?i)https?://(?P<subdomain>(?:\w{1,3}\.)?)(?P<domain>tiktok\.com)(?P<data>/[^?\s)\]`|]*)";
