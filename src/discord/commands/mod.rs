@@ -1,8 +1,8 @@
 //! Stores business logic for commands
 
-pub mod help;
-pub mod sanitize;
-pub mod settings;
+mod help;
+mod sanitize;
+mod settings;
 
 use std::sync::Arc;
 
