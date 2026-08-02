@@ -2,10 +2,9 @@
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use twilight_model::{
-    channel::Message,
-    id::{Id, marker::MessageMarker},
-};
+use twilight_model::channel::Message;
+use twilight_model::id::Id;
+use twilight_model::id::marker::MessageMarker;
 
 use super::connection::{WRITE_LOCK, get_read_connection, get_write_connection, request_push};
 use crate::discord::models::{DeletePermission, SanitizerMode};

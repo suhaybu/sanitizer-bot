@@ -2,10 +2,8 @@ mod discord;
 mod utils;
 
 use std::env;
-use std::sync::{
-    Arc, OnceLock,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use anyhow::Context;
 use time::UtcOffset;
@@ -17,17 +15,13 @@ use twilight_gateway::{
     CloseFrame, ConfigBuilder, Event, EventTypeFlags, Intents, Shard, StreamExt as _,
 };
 use twilight_http::Client;
-use twilight_model::gateway::{
-    payload::outgoing::update_presence::UpdatePresencePayload,
-    presence::{ActivityType, MinimalActivity, Status},
-};
+use twilight_model::gateway::payload::outgoing::update_presence::UpdatePresencePayload;
+use twilight_model::gateway::presence::{ActivityType, MinimalActivity, Status};
 use twilight_model::id::Id;
 use twilight_model::id::marker::{EmojiMarker, UserMarker};
 
-use crate::{
-    discord::{commands, handle_event},
-    utils::ConfigCache,
-};
+use crate::discord::{commands, handle_event};
+use crate::utils::ConfigCache;
 
 // Flag that can be checked by any part of the program.
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);

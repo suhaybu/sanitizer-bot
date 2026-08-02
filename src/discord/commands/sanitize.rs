@@ -2,21 +2,15 @@
 
 use anyhow::Context;
 use twilight_http::Client;
-use twilight_model::{
-    application::{
-        command::{Command, CommandType},
-        interaction::{
-            Interaction, InteractionContextType,
-            application_command::{CommandData, CommandOptionValue},
-        },
-    },
-    channel::message::{
-        Component, EmojiReactionType,
-        component::{ActionRow, Button, ButtonStyle},
-    },
-    http::interaction::{InteractionResponse, InteractionResponseType},
-    oauth::ApplicationIntegrationType,
+use twilight_model::application::command::{Command, CommandType};
+use twilight_model::application::interaction::application_command::{
+    CommandData, CommandOptionValue,
 };
+use twilight_model::application::interaction::{Interaction, InteractionContextType};
+use twilight_model::channel::message::component::{ActionRow, Button, ButtonStyle};
+use twilight_model::channel::message::{Component, EmojiReactionType};
+use twilight_model::http::interaction::{InteractionResponse, InteractionResponseType};
+use twilight_model::oauth::ApplicationIntegrationType;
 use twilight_util::builder::command::{BooleanBuilder, CommandBuilder, StringBuilder};
 
 use crate::utils::sanitize::UrlProcessor;

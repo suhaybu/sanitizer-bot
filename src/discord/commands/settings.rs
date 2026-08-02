@@ -2,34 +2,27 @@
 
 use anyhow::Context;
 use twilight_http::Client;
-use twilight_model::{
-    application::{
-        command::{Command, CommandType},
-        interaction::{
-            Interaction, InteractionContextType, message_component::MessageComponentInteractionData,
-        },
-    },
-    channel::message::{
-        EmojiReactionType, MessageFlags,
-        component::{Component, Container, SelectMenuType, SeparatorSpacingSize},
-    },
-    guild::Permissions,
-    http::interaction::{InteractionResponse, InteractionResponseType},
-    oauth::ApplicationIntegrationType,
+use twilight_model::application::command::{Command, CommandType};
+use twilight_model::application::interaction::message_component::MessageComponentInteractionData;
+use twilight_model::application::interaction::{Interaction, InteractionContextType};
+use twilight_model::channel::message::component::{
+    Component, Container, SelectMenuType, SeparatorSpacingSize,
 };
-use twilight_util::builder::{
-    InteractionResponseDataBuilder,
-    command::CommandBuilder,
-    message::{
-        ActionRowBuilder, ContainerBuilder, SelectMenuBuilder, SelectMenuOptionBuilder,
-        SeparatorBuilder, TextDisplayBuilder,
-    },
+use twilight_model::channel::message::{EmojiReactionType, MessageFlags};
+use twilight_model::guild::Permissions;
+use twilight_model::http::interaction::{InteractionResponse, InteractionResponseType};
+use twilight_model::oauth::ApplicationIntegrationType;
+use twilight_util::builder::InteractionResponseDataBuilder;
+use twilight_util::builder::command::CommandBuilder;
+use twilight_util::builder::message::{
+    ActionRowBuilder, ContainerBuilder, SelectMenuBuilder, SelectMenuOptionBuilder,
+    SeparatorBuilder, TextDisplayBuilder,
 };
 
-use crate::{
-    discord::models::{DeletePermission, HideOriginalEmbed, SanitizerMode, SettingsMenuType},
-    utils::{ServerConfig, config_cache},
+use crate::discord::models::{
+    DeletePermission, HideOriginalEmbed, SanitizerMode, SettingsMenuType,
 };
+use crate::utils::{ServerConfig, config_cache};
 
 pub struct SettingsCommand;
 

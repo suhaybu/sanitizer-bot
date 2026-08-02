@@ -1,7 +1,5 @@
-use std::{
-    num::NonZeroUsize,
-    sync::{Mutex, MutexGuard, PoisonError},
-};
+use std::num::NonZeroUsize;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use dashmap::DashMap;
 use lru::LruCache;

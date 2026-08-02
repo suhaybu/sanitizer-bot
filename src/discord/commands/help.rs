@@ -1,18 +1,14 @@
 //! Credit Command: Presents the user with a list of acknowledgments.
 
 use twilight_http::Client;
-use twilight_model::{
-    application::{
-        command::{Command, CommandType},
-        interaction::{Interaction, InteractionContextType},
-    },
-    channel::message::MessageFlags,
-    http::interaction::{InteractionResponse, InteractionResponseType},
-    oauth::ApplicationIntegrationType,
-};
-use twilight_util::builder::{
-    InteractionResponseDataBuilder, command::CommandBuilder, embed::EmbedBuilder,
-};
+use twilight_model::application::command::{Command, CommandType};
+use twilight_model::application::interaction::{Interaction, InteractionContextType};
+use twilight_model::channel::message::MessageFlags;
+use twilight_model::http::interaction::{InteractionResponse, InteractionResponseType};
+use twilight_model::oauth::ApplicationIntegrationType;
+use twilight_util::builder::InteractionResponseDataBuilder;
+use twilight_util::builder::command::CommandBuilder;
+use twilight_util::builder::embed::EmbedBuilder;
 
 pub struct HelpCommand;
 

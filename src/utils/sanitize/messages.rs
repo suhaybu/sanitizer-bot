@@ -1,20 +1,16 @@
-use twilight_http::{Client, request::channel::reaction::RequestReactionType};
-use twilight_model::channel::{
-    Message,
-    message::{
-        AllowedMentions, Component, EmojiReactionType, MessageFlags, MessageType,
-        component::{ActionRow, Button, ButtonStyle},
-    },
+use twilight_http::Client;
+use twilight_http::request::channel::reaction::RequestReactionType;
+use twilight_model::channel::Message;
+use twilight_model::channel::message::component::{ActionRow, Button, ButtonStyle};
+use twilight_model::channel::message::{
+    AllowedMentions, Component, EmojiReactionType, MessageFlags, MessageType,
 };
 
-use crate::{
-    BOT_USER_ID,
-    discord::models::{DeletePermission, SanitizerMode},
-    utils::{
-        database::{ResponseMap, ServerConfig},
-        sanitize::{UrlProcessor, core::get_links},
-    },
-};
+use crate::BOT_USER_ID;
+use crate::discord::models::{DeletePermission, SanitizerMode};
+use crate::utils::database::{ResponseMap, ServerConfig};
+use crate::utils::sanitize::UrlProcessor;
+use crate::utils::sanitize::core::get_links;
 
 /// Converts the URL in a message if there is a valid URL.
 pub async fn process_message(

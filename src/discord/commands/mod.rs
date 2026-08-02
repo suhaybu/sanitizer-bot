@@ -4,12 +4,11 @@ pub mod help;
 pub mod sanitize;
 pub mod settings;
 
+use std::sync::Arc;
+
 pub use help::HelpCommand;
 pub use sanitize::SanitizeCommand;
 pub use settings::SettingsCommand;
-
-use std::sync::Arc;
-
 use twilight_http::Client;
 
 /// This command registers all the discord commands, and is called in main::run().
