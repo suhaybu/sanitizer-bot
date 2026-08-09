@@ -33,7 +33,7 @@ impl ConfigCache {
         let Some(config) = self.cache.get(&guild_id) else {
             tracing::debug!("Could not find guild in cache, retrieving from database.");
             let config = ServerConfig::get_or_default(guild_id).await?;
-            self.try_insert(guild_id, config.clone());
+            self.try_insert(guild_id, config);
 
             return Ok(config);
         };
@@ -44,7 +44,7 @@ impl ConfigCache {
         }
         tracing::debug!("Found Server Config in cache");
 
-        Ok(config.clone())
+        Ok(*config)
     }
 
     // Update the server config in the database and cache.

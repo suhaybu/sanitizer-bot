@@ -102,7 +102,7 @@ impl Platform {
         let matches = regex_set.matches(input);
         tracing::debug!("Trying to detect a match in the url.");
 
-        matches.iter().next().and_then(|idx| Self::from_index(idx))
+        matches.iter().next().and_then(Self::from_index)
     }
 
     pub const fn display_name(&self) -> &'static str {

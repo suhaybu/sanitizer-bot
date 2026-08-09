@@ -205,11 +205,9 @@ impl SanitizeCommand {
             }));
         }
 
-        let action_row = Component::ActionRow(ActionRow {
+        Component::ActionRow(ActionRow {
             id: None,
             components: buttons,
-        });
-
-        action_row
+        })
     }
 }

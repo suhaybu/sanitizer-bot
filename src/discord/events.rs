@@ -112,7 +112,7 @@ async fn handle_reaction_add(reaction: GatewayReaction, client: &Client) -> anyh
         _ => return Ok(()),
     };
 
-    if reaction_emoji_id == crate::EMOJI_ID.get().unwrap().to_owned() {
+    if reaction_emoji_id == *crate::EMOJI_ID.get().unwrap() {
         let server_config = ServerConfig::get_or_default(guild_id.get()).await?;
         let message = client
             .message(reaction.channel_id, reaction.message_id)
@@ -120,7 +120,7 @@ async fn handle_reaction_add(reaction: GatewayReaction, client: &Client) -> anyh
             .model()
             .await?;
 
-        sanitize::process_message(&message, &client, Some(server_config)).await?;
+        sanitize::process_message(&message, client, Some(server_config)).await?;
     }
 
     Ok(())
@@ -319,10 +319,10 @@ async fn handle_delete_button(interaction: &Interaction, client: &Client) -> any
 
     // Removes the now-stale response_map entry so a later deletion of the
     // original message doesn't try to re-delete this already-deleted bot message.
-    if let Some(referenced_message) = msg.referenced_message.as_ref() {
-        if let Err(e) = ResponseMap::delete_entry(referenced_message.id.get()).await {
-            tracing::warn!("Failed to delete response_map entry: {:?}", e);
-        }
+    if let Some(referenced_message) = msg.referenced_message.as_ref()
+        && let Err(e) = ResponseMap::delete_entry(referenced_message.id.get()).await
+    {
+        tracing::warn!("Failed to delete response_map entry: {:?}", e);
     }
 
     // Handles unsupressing original embed.
