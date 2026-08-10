@@ -221,7 +221,7 @@ async fn create_tables(conn: &Connection) -> anyhow::Result<()> {
     let create_response_map_table = r#"
         CREATE TABLE IF NOT EXISTS response_map (
             user_message_id INTEGER PRIMARY KEY,
-            bot_message_id INTEGER NOT NULL,
+            bot_message_id INTEGER NOT NULL UNIQUE,
             guild_id INTEGER,
             channel_id INTEGER NOT NULL
         )
