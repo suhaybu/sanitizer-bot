@@ -8,3 +8,6 @@ stack.env
 local.db
 local.db-*
 sanitizer-bot.db
+
+auth
+auth-wal
