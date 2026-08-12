@@ -9,6 +9,7 @@ use turso::Connection;
 use turso::sync::{Builder, Database};
 
 const READ_POOL_SIZE: usize = 4;
+const BUSY_TIMEOUT: Duration = Duration::from_millis(5000);
 
 static DB: OnceCell<Database> = OnceCell::const_new();
 static WRITE_CONN: OnceCell<Connection> = OnceCell::const_new();
@@ -53,6 +54,11 @@ pub async fn init_database() -> anyhow::Result<()> {
         .connect()
         .await
         .context("Failed to open write connection")?;
+    write_conn
+        .busy_timeout(BUSY_TIMEOUT)
+        .context("Failed to set busy_timeout on write connection")?;
+
+    create_tables(&write_conn).await?;
 
     let (tx, rx) = mpsc::channel(READ_POOL_SIZE);
     for i in 0..READ_POOL_SIZE {
@@ -60,12 +66,12 @@ pub async fn init_database() -> anyhow::Result<()> {
             .connect()
             .await
             .with_context(|| format!("Failed to open read connection {i}"))?;
+        conn.busy_timeout(BUSY_TIMEOUT)
+            .with_context(|| format!("Failed to set busy_timeout on read connection {i}"))?;
         tx.send(conn)
             .await
             .expect("channel just created, cannot be closed");
     }
-
-    create_tables(&write_conn).await?;
 
     DB.set(db)
         .map_err(|_| anyhow::anyhow!("Database already initialized"))?;
@@ -200,10 +206,6 @@ async fn init_database_internal() -> anyhow::Result<Database> {
 
 async fn create_tables(conn: &Connection) -> anyhow::Result<()> {
     tracing::debug!("Ensuring database schema exists");
-
-    conn.execute("PRAGMA busy_timeout = 5000", ())
-        .await
-        .context("Failed to set busy_timeout")?;
 
     let create_server_configs_table = r#"
         CREATE TABLE IF NOT EXISTS server_configs (

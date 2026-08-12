@@ -39,7 +39,7 @@ impl ResponseMap {
         let sql = r#"
             INSERT OR REPLACE INTO response_map
             (user_message_id, bot_message_id, guild_id, channel_id)
-            VALUES (?, ?, ?, ?)
+            VALUES (?1, ?2, ?3, ?4)
         "#;
 
         {
@@ -80,16 +80,11 @@ impl ResponseMap {
         let sql = r#"
             SELECT user_message_id, bot_message_id, guild_id, channel_id
             FROM response_map
-            WHERE user_message_id = ?
+            WHERE user_message_id = ?1 OR bot_message_id = ?1
         "#;
 
-        let mut stmt = conn
-            .prepare(sql)
-            .await
-            .context("Failed to prepare SELECT statement")?;
-
-        let mut rows = stmt
-            .query([deleted_message_id.get() as i64])
+        let mut rows = conn
+            .query(sql, [deleted_message_id.get() as i64])
             .await
             .context("Failed to execute SELECT statement")?;
 
@@ -140,7 +135,7 @@ impl ServerConfig {
         let sql = r#"
             INSERT OR REPLACE INTO server_configs
             (guild_id, sanitizer_mode, delete_permission, hide_original_embed)
-            VALUES (?, ?, ?, ?)
+            VALUES (?1, ?2, ?3, ?4)
         "#;
 
         {
@@ -196,13 +191,8 @@ impl ServerConfig {
             WHERE guild_id = ?
         "#;
 
-        let mut stmt = conn
-            .prepare(sql)
-            .await
-            .context("Failed to prepare SELECT statement")?;
-
-        let mut rows = stmt
-            .query([guild_id as i64])
+        let mut rows = conn
+            .query(sql, [guild_id as i64])
             .await
             .context("Failed to execute SELECT query")?;
 
