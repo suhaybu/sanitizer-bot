@@ -17,6 +17,100 @@ pub struct ServerConfig {
     pub hide_original_embed: bool,
 }
 
+impl ServerConfig {
+    pub async fn save(&self) -> anyhow::Result<()> {
+        let sql = r#"
+            INSERT OR REPLACE INTO server_configs
+            (guild_id, sanitizer_mode, delete_permission, hide_original_embed)
+            VALUES (?1, ?2, ?3, ?4)
+        "#;
+
+        {
+            let _guard = WRITE_LOCK.lock().await;
+            let conn = get_write_connection()?;
+            conn.execute(
+                sql,
+                (
+                    self.guild_id as i64,
+                    self.sanitizer_mode as i32,
+                    self.delete_permission as i32,
+                    self.hide_original_embed,
+                ),
+            )
+            .await
+            .context("Failed to save server config")?;
+        }
+
+        tracing::debug!("Saved config for guild {}", self.guild_id);
+        tracing::debug!("{:?}", self);
+
+        request_push();
+
+        Ok(())
+    }
+
+    pub async fn get_or_default(guild_id: u64) -> anyhow::Result<Self> {
+        match Self::get(guild_id).await? {
+            Some(config) => Ok(config),
+            None => {
+                tracing::debug!("Using default config for guild ({})", guild_id);
+                Ok(Self::new(guild_id))
+            }
+        }
+    }
+
+    fn new(guild_id: u64) -> Self {
+        Self {
+            guild_id,
+            sanitizer_mode: SanitizerMode::default(),
+            delete_permission: DeletePermission::default(),
+            hide_original_embed: true,
+        }
+    }
+
+    // Uses the read pool - no lock needed.
+    async fn get(guild_id: u64) -> anyhow::Result<Option<Self>> {
+        let conn = get_read_connection().await?;
+
+        let sql = r#"
+            SELECT guild_id, sanitizer_mode, delete_permission, hide_original_embed
+            FROM server_configs
+            WHERE guild_id = ?
+        "#;
+
+        let mut rows = conn
+            .query(sql, [guild_id as i64])
+            .await
+            .context("Failed to execute SELECT query")?;
+
+        if let Some(row) = rows.next().await.context("Failed to fetch row")? {
+            tracing::debug!("Found existing config for guild {}", guild_id);
+            Ok(Some(Self {
+                guild_id,
+                sanitizer_mode: row.get::<i32>(1)?.into(),
+                delete_permission: row.get::<i32>(2)?.into(),
+                hide_original_embed: row.get::<bool>(3)?,
+            }))
+        } else {
+            tracing::debug!("No config found for guild {}, returning default", guild_id);
+            Ok(None)
+        }
+    }
+
+    // pub async fn delete(guild_id: u64) -> anyhow::Result<()> {
+    //    let conn = get_connection()?;
+
+    //     let sql = "DELETE FROM Sanitizer WHERE guild_id = ?";
+
+    //     conn.execute(sql, [guild_id as i64])
+    //         .await
+    //         .context("Failed to delete server config")?;
+
+    //     debug!("Deleted config for guild {}", guild_id);
+    //     Ok(())
+    // }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct ResponseMap {
     pub user_message_id: u64,
@@ -128,98 +222,4 @@ impl ResponseMap {
 
         Ok(())
     }
-}
-
-impl ServerConfig {
-    pub async fn save(&self) -> anyhow::Result<()> {
-        let sql = r#"
-            INSERT OR REPLACE INTO server_configs
-            (guild_id, sanitizer_mode, delete_permission, hide_original_embed)
-            VALUES (?1, ?2, ?3, ?4)
-        "#;
-
-        {
-            let _guard = WRITE_LOCK.lock().await;
-            let conn = get_write_connection()?;
-            conn.execute(
-                sql,
-                (
-                    self.guild_id as i64,
-                    self.sanitizer_mode as i32,
-                    self.delete_permission as i32,
-                    self.hide_original_embed,
-                ),
-            )
-            .await
-            .context("Failed to save server config")?;
-        }
-
-        tracing::debug!("Saved config for guild {}", self.guild_id);
-        tracing::debug!("{:?}", self);
-
-        request_push();
-
-        Ok(())
-    }
-
-    pub async fn get_or_default(guild_id: u64) -> anyhow::Result<Self> {
-        match Self::get(guild_id).await? {
-            Some(config) => Ok(config),
-            None => {
-                tracing::debug!("Using default config for guild ({})", guild_id);
-                Ok(Self::new(guild_id))
-            }
-        }
-    }
-
-    fn new(guild_id: u64) -> Self {
-        Self {
-            guild_id,
-            sanitizer_mode: SanitizerMode::default(),
-            delete_permission: DeletePermission::default(),
-            hide_original_embed: true,
-        }
-    }
-
-    // Uses the read pool - no lock needed.
-    async fn get(guild_id: u64) -> anyhow::Result<Option<Self>> {
-        let conn = get_read_connection().await?;
-
-        let sql = r#"
-            SELECT guild_id, sanitizer_mode, delete_permission, hide_original_embed
-            FROM server_configs
-            WHERE guild_id = ?
-        "#;
-
-        let mut rows = conn
-            .query(sql, [guild_id as i64])
-            .await
-            .context("Failed to execute SELECT query")?;
-
-        if let Some(row) = rows.next().await.context("Failed to fetch row")? {
-            tracing::debug!("Found existing config for guild {}", guild_id);
-            Ok(Some(Self {
-                guild_id,
-                sanitizer_mode: row.get::<i32>(1)?.into(),
-                delete_permission: row.get::<i32>(2)?.into(),
-                hide_original_embed: row.get::<bool>(3)?,
-            }))
-        } else {
-            tracing::debug!("No config found for guild {}, returning default", guild_id);
-            Ok(None)
-        }
-    }
-
-    // pub async fn delete(guild_id: u64) -> anyhow::Result<()> {
-    //    let conn = get_connection()?;
-
-    //     let sql = "DELETE FROM Sanitizer WHERE guild_id = ?";
-
-    //     conn.execute(sql, [guild_id as i64])
-    //         .await
-    //         .context("Failed to delete server config")?;
-
-    //     debug!("Deleted config for guild {}", guild_id);
-    //     Ok(())
-    // }
 }

@@ -45,26 +45,6 @@ static INDIVIDUAL_REGEXES: LazyLock<[Regex; 4]> = LazyLock::new(|| {
         // Regex::new(TWITCH_URL_PATTERN).expect("Valid Twitch regex"),
     ]
 });
-
-#[derive(Debug, Clone, Copy)]
-pub enum Platform {
-    Instagram = 0,
-    Reddit = 1,
-    TikTok = 2,
-    Twitter = 3,
-    // Twitch = 3,
-}
-
-#[derive(Debug, Clone)]
-pub struct UrlProcessor {
-    platform: Platform,
-    user_input: String, // Gets set in caller
-    clean_url: Option<String>,
-    username: Option<String>,
-    post_type: Option<String>,
-    spoiler: bool,
-}
-
 static REGEX_SET: LazyLock<anyhow::Result<RegexSet>> = LazyLock::new(|| {
     RegexSetBuilder::new(URL_PATTERNS)
         .case_insensitive(true)
@@ -73,27 +53,13 @@ static REGEX_SET: LazyLock<anyhow::Result<RegexSet>> = LazyLock::new(|| {
         .context("CRITICAL: Failed to build RegexSet")
 });
 
-// A simple & fast pre-check to see if a url is present.
-pub fn contains_url(input: &str) -> bool {
-    let input = input.to_lowercase();
-    input.contains("instagram.com")
-        || input.contains("reddit.com")
-        || input.contains("tiktok.com")
-        // || input.contains("twitch.tv")
-        || input.contains("twitter.com")
-        || input.contains("x.com")
-}
-
-pub fn get_links(msg: &Message) -> Vec<&str> {
-    msg.content
-        .split_whitespace()
-        .filter(|word| contains_url(word))
-        .fold(Vec::new(), |mut unique, word| {
-            if !unique.contains(&word) {
-                unique.push(word);
-            }
-            unique
-        })
+#[derive(Debug, Clone, Copy)]
+pub enum Platform {
+    Instagram = 0,
+    Reddit = 1,
+    TikTok = 2,
+    Twitter = 3,
+    // Twitch = 3,
 }
 
 impl Platform {
@@ -135,6 +101,16 @@ impl Platform {
             // Self::Twitch => "fxtwitch.seria.moe",
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct UrlProcessor {
+    platform: Platform,
+    user_input: String, // Gets set in caller
+    clean_url: Option<String>,
+    username: Option<String>,
+    post_type: Option<String>,
+    spoiler: bool,
 }
 
 impl UrlProcessor {
@@ -394,4 +370,27 @@ impl UrlProcessor {
         };
         Ok(author)
     }
+}
+
+// A simple & fast pre-check to see if a url is present.
+pub fn contains_url(input: &str) -> bool {
+    let input = input.to_lowercase();
+    input.contains("instagram.com")
+        || input.contains("reddit.com")
+        || input.contains("tiktok.com")
+        // || input.contains("twitch.tv")
+        || input.contains("twitter.com")
+        || input.contains("x.com")
+}
+
+pub fn get_links(msg: &Message) -> Vec<&str> {
+    msg.content
+        .split_whitespace()
+        .filter(|word| contains_url(word))
+        .fold(Vec::new(), |mut unique, word| {
+            if !unique.contains(&word) {
+                unique.push(word);
+            }
+            unique
+        })
 }
