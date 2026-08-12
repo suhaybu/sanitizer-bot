@@ -112,6 +112,13 @@ impl ServerConfig {
     // }
 }
 
+/// Represents the Author of the Message used for finding a match.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MessageAuthor {
+    User,
+    Bot,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct ResponseMap {
     pub user_message_id: u64,
@@ -166,10 +173,16 @@ impl ResponseMap {
         Ok(())
     }
 
-    // Finds a match for a deleted message using the message's id.
+    /// Finds a match for a deleted message using the message's id.
+    ///
+    /// Returns a tuple containing:
+    ///     - ReponseMap (struct)
+    ///     - MessageAuthor (enum): to identify the message author
     // Uses the read pool - no lock needed, safe to run concurrently
     // with writes/push/pull under WAL.
-    pub async fn find_match(deleted_message_id: Id<MessageMarker>) -> anyhow::Result<Option<Self>> {
+    pub async fn find_match(
+        message_id: Id<MessageMarker>,
+    ) -> anyhow::Result<Option<(Self, MessageAuthor)>> {
         let conn = get_read_connection().await?;
 
         let sql = r#"
@@ -179,12 +192,12 @@ impl ResponseMap {
         "#;
 
         let mut rows = conn
-            .query(sql, [deleted_message_id.get() as i64])
+            .query(sql, [message_id.get() as i64])
             .await
             .context("Failed to execute SELECT statement")?;
 
         let Some(row) = rows.next().await.context("Failed to fetch row")? else {
-            tracing::debug!(%deleted_message_id, "No response map found");
+            tracing::debug!(%message_id, "No response map found");
             return Ok(None);
         };
 
@@ -195,7 +208,12 @@ impl ResponseMap {
             row.get::<i64>(3)? as u64,
         );
 
-        tracing::debug!(%deleted_message_id, "Found response map");
+        let author = match user_message_id == message_id.get() {
+            true => MessageAuthor::User,
+            false => MessageAuthor::Bot,
+        };
+
+        tracing::debug!(%message_id, "Found response map");
 
         let response_map = Self {
             user_message_id,
@@ -204,7 +222,7 @@ impl ResponseMap {
             channel_id,
         };
 
-        Ok(Some(response_map))
+        Ok(Some((response_map, author)))
     }
 
     pub async fn delete_entry(user_message_id: u64) -> anyhow::Result<()> {
