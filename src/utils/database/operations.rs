@@ -83,18 +83,19 @@ impl ServerConfig {
             .await
             .context("Failed to execute SELECT query")?;
 
-        if let Some(row) = rows.next().await.context("Failed to fetch row")? {
-            tracing::debug!("Found existing config for guild {}", guild_id);
-            Ok(Some(Self {
-                guild_id,
-                sanitizer_mode: row.get::<i32>(1)?.into(),
-                delete_permission: row.get::<i32>(2)?.into(),
-                hide_original_embed: row.get::<bool>(3)?,
-            }))
-        } else {
-            tracing::debug!("No config found for guild {}, returning default", guild_id);
-            Ok(None)
-        }
+        let Some(row) = rows.next().await.context("Failed to fetch row")? else {
+            tracing::debug!(%guild_id, "No config found for guild");
+            return Ok(None);
+        };
+
+        tracing::debug!(%guild_id, "Found existing config for guild");
+
+        Ok(Some(Self {
+            guild_id,
+            sanitizer_mode: row.get::<i32>(1)?.into(),
+            delete_permission: row.get::<i32>(2)?.into(),
+            hide_original_embed: row.get::<bool>(3)?,
+        }))
     }
 
     // pub async fn delete(guild_id: u64) -> anyhow::Result<()> {
@@ -182,24 +183,28 @@ impl ResponseMap {
             .await
             .context("Failed to execute SELECT statement")?;
 
-        if let Some(row) = rows.next().await.context("Failed to fetch row")? {
-            tracing::debug!(
-                "Found response map for user_message_id={}",
-                deleted_message_id
-            );
-            Ok(Some(Self {
-                user_message_id: deleted_message_id.get(),
-                bot_message_id: row.get::<i64>(1)? as u64,
-                guild_id: row.get::<Option<i64>>(2)?.map(|id| id as u64),
-                channel_id: row.get::<i64>(3)? as u64,
-            }))
-        } else {
-            tracing::debug!(
-                "No response map found for user_message_id={}",
-                deleted_message_id
-            );
-            Ok(None)
-        }
+        let Some(row) = rows.next().await.context("Failed to fetch row")? else {
+            tracing::debug!(%deleted_message_id, "No response map found");
+            return Ok(None);
+        };
+
+        let (user_message_id, bot_message_id, guild_id, channel_id) = (
+            row.get::<i64>(0)? as u64,
+            row.get::<i64>(1)? as u64,
+            row.get::<Option<i64>>(2)?.map(|id| id as u64),
+            row.get::<i64>(3)? as u64,
+        );
+
+        tracing::debug!(%deleted_message_id, "Found response map");
+
+        let response_map = Self {
+            user_message_id,
+            bot_message_id,
+            guild_id,
+            channel_id,
+        };
+
+        Ok(Some(response_map))
     }
 
     pub async fn delete_entry(user_message_id: u64) -> anyhow::Result<()> {
