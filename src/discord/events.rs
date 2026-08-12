@@ -20,7 +20,9 @@ use twilight_util::builder::message::{ContainerBuilder, TextDisplayBuilder};
 
 use crate::discord::commands;
 use crate::discord::models::{DeletePermission, SanitizerMode, SettingsMenuType};
-use crate::utils::{ResponseMap, ServerConfig, config_cache, sanitize};
+use crate::utils::{
+    MessageAuthor, ResponseMap, ServerConfig, config_cache, sanitize, unsupress_embeds,
+};
 
 /// Handles all types of incomming events from Discord.
 pub async fn handle_event(event: Event, client: Arc<Client>) {
@@ -78,9 +80,16 @@ pub async fn handle_event(event: Event, client: Arc<Client>) {
 async fn handle_message_delete(ctx: MessageDelete, client: &Client) -> anyhow::Result<()> {
     let matched_bot_response = ResponseMap::find_match(ctx.id).await?;
 
-    match matched_bot_response {
-        Some(response_map) => {
-            tracing::debug!("Response match found for message ID: {}", ctx.id);
+    let Some((response_map, side)) = matched_bot_response else {
+        tracing::debug!(message_id = %ctx.id, "No match found for message");
+        return Ok(());
+    };
+
+    tracing::debug!(message_id = %ctx.id, "Response match found for message");
+
+    match side {
+        // Handles case where the original user message is deleted.
+        MessageAuthor::User => {
             if let Err(e) = client
                 .delete_message(
                     Id::new(response_map.channel_id),
@@ -88,16 +97,41 @@ async fn handle_message_delete(ctx: MessageDelete, client: &Client) -> anyhow::R
                 )
                 .await
             {
-                tracing::debug!("Bot message already gone (likely race): {:?}", e);
+                tracing::debug!(error = ?e, "Bot message already gone (likely race)");
             }
-            ResponseMap::delete_entry(ctx.id.get()).await?;
-            Ok(())
         }
-        None => {
-            tracing::debug!("No match found for message ID: {}", ctx.id);
-            Ok(())
+        // Handles case where bot's response is deleted using
+        // Discord interface, and not using the custom Delete button.
+        MessageAuthor::Bot => {
+            if let Ok(response) = client
+                .message(
+                    Id::new(response_map.channel_id),
+                    Id::new(response_map.user_message_id),
+                )
+                .await
+            {
+                let user_msg = response
+                    .model()
+                    .await
+                    .context("Failed to deserialize user message payload from Discord")?;
+
+                if let Err(e) = unsupress_embeds(&user_msg, client).await {
+                    tracing::debug!(error = ?e, "Failed to unsuppress original message embed");
+                }
+            } else {
+                tracing::debug!(
+                    user_message_id = response_map.user_message_id,
+                    "User message already deleted or inaccessible, skipping unsupressed"
+                );
+            }
         }
     }
+
+    ResponseMap::delete_entry(ctx.id.get())
+        .await
+        .with_context(|| format!("Failed to delete response map entry for message {}", ctx.id))?;
+
+    Ok(())
 }
 
 /// Handles twilight_gateway::Event::ReactionAdd events.
@@ -317,30 +351,18 @@ async fn handle_delete_button(interaction: &Interaction, client: &Client) -> any
         }
     }
 
-    // Removes the now-stale response_map entry so a later deletion of the
-    // original message doesn't try to re-delete this already-deleted bot message.
-    if let Some(referenced_message) = msg.referenced_message.as_ref()
-        && let Err(e) = ResponseMap::delete_entry(referenced_message.id.get()).await
-    {
-        tracing::warn!("Failed to delete response_map entry: {:?}", e);
-    }
+    if let Some(referenced_message) = msg.referenced_message.as_ref() {
+        // Removes the now-stale response_map entry so a later deletion of the
+        // original message doesn't try to re-delete this already-deleted bot message.
+        if let Err(e) = ResponseMap::delete_entry(referenced_message.id.get()).await {
+            tracing::warn!(error = ?e, "Failed to delete response_map entry");
+        }
 
-    // Handles unsupressing original embed.
-    if server_config.hide_original_embed {
-        let referenced_message = msg
-            .referenced_message
-            .as_ref()
-            .context("No referenced message found to unsuppress")?;
-
-        let current_flags = referenced_message.flags.unwrap_or(MessageFlags::empty());
-        let new_flags = current_flags - MessageFlags::SUPPRESS_EMBEDS;
-
-        if let Err(e) = client
-            .update_message(referenced_message.channel_id, referenced_message.id)
-            .flags(new_flags)
-            .await
-        {
-            tracing::warn!("Failed to unsuppress original message embed: {:?}", e);
+        // Handles unsupressing original embed.
+        if server_config.hide_original_embed {
+            if let Err(e) = unsupress_embeds(referenced_message, client).await {
+                tracing::warn!(error = ?e, "Failed to unsuppress original message embed");
+            }
         }
     }
 
