@@ -1,12 +1,15 @@
+//! Handles in-memory caching of server configs. (This file is primarily written by an LLM)
+
 use std::num::NonZeroUsize;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use dashmap::DashMap;
+use dashmap::{DashMap, Entry};
 use lru::LruCache;
 
-use crate::utils::database::ServerConfig;
+use crate::db::ServerConfig;
 
-pub fn config_cache() -> &'static ConfigCache {
+/// Returns the ConfigCache.
+pub fn load() -> &'static ConfigCache {
     crate::CONFIG_CACHE
         .get()
         .expect("CONFIG_CACHE not initialized")
@@ -28,23 +31,19 @@ impl ConfigCache {
         }
     }
 
-    // Gets config from cache, else retrieves it from db and adds to cache.
+    /// Gets config from cache, else retrieves it from db and adds to cache.
     pub async fn get_or_fetch(&self, guild_id: u64) -> anyhow::Result<ServerConfig> {
-        let Some(config) = self.cache.get(&guild_id) else {
-            tracing::debug!("Could not find guild in cache, retrieving from database.");
-            let config = ServerConfig::get_or_default(guild_id).await?;
-            self.try_insert(guild_id, config);
-
-            return Ok(config);
-        };
-        // Marks the guild as recently used.
-        if let Ok(mut lru) = self.lru.lock() {
-            tracing::debug!("Updated LRU");
-            lru.promote(&guild_id);
+        if let Some(config) = self.cache.get(&guild_id) {
+            self.touch(guild_id, false);
+            tracing::debug!("Found Server Config in cache");
+            return Ok(*config);
         }
-        tracing::debug!("Found Server Config in cache");
 
-        Ok(*config)
+        tracing::debug!("Could not find guild in cache, retrieving from database.");
+        let config = ServerConfig::get_or_default(guild_id).await?;
+        self.upsert(guild_id, config, /* overwrite */ false);
+
+        Ok(config)
     }
 
     // Update the server config in the database and cache.
@@ -52,50 +51,64 @@ impl ConfigCache {
         // Updates the database with change.
         config.save().await?;
         // Updates the cache
-        self.insert(guild_id, config);
+        self.upsert(guild_id, config, /* overwrite */ true);
 
         Ok(())
     }
 
-    fn try_insert(&self, guild_id: u64, config: ServerConfig) {
-        if self.cache.contains_key(&guild_id) {
-            if let Ok(mut lru) = self.lru.lock() {
-                lru.promote(&guild_id);
+    /// Inserts or updates `guild_id` in the cache, atomically via DashMap's
+    /// per-shard entry API (so concurrent callers can't double-insert or
+    /// race the eviction count). If the key is already present:
+    ///   - `overwrite = true`  -> replaces the stored value (explicit updates)
+    ///   - `overwrite = false` -> leaves the existing value, just promotes it
+    /// New keys are always inserted and pushed into the LRU, evicting the
+    /// least-recently-used entry if that puts the cache over capacity.
+    fn upsert(&self, guild_id: u64, config: ServerConfig, overwrite: bool) {
+        let is_new = match self.cache.entry(guild_id) {
+            Entry::Occupied(mut entry) => {
+                if overwrite {
+                    entry.insert(config);
+                }
+                false
             }
-            return;
-        }
+            Entry::Vacant(entry) => {
+                entry.insert(config);
+                true
+            }
+        };
 
-        self.insert(guild_id, config);
+        self.touch(guild_id, is_new);
     }
 
-    // Inserts config into cache and updates the LRU queue, and handles filled queue.
-    fn insert(&self, guild_id: u64, config: ServerConfig) {
-        tracing::debug!("Attempting to insert guild config");
-        // Updates the LRU queue.
+    /// Updates the LRU queue for `guild_id`. If `is_new`, this may evict the
+    /// least-recently-used entry from the DashMap to stay within capacity;
+    /// otherwise it just promotes the existing entry.
+    fn touch(&self, guild_id: u64, is_new: bool) {
         match self.lru.lock() {
             Ok(mut lru) => {
-                // If the LRU queue is full, the guild_id that needs to be evicted is returned.
-                if let Some((evicted_id, _)) = lru.push(guild_id, ()) {
-                    self.cache.remove(&evicted_id);
-                    tracing::debug!("Evicted guild_id {} from config cache", evicted_id);
+                if is_new {
+                    if let Some((evicted_id, _)) = lru.push(guild_id, ()) {
+                        self.cache.remove(&evicted_id);
+                        tracing::debug!("Evicted guild_id {} from config cache", evicted_id);
+                    }
+                } else {
+                    lru.promote(&guild_id);
                 }
             }
-            Err(e) => Self::handle_poison(e, guild_id),
+            Err(e) => self.handle_poison(e, guild_id),
         }
-
-        self.cache.insert(guild_id, config);
     }
 
-    fn handle_poison(e: PoisonError<MutexGuard<'_, LruCache<u64, ()>>>, guild_id: u64) {
+    /// Recovers from a poisoned LRU mutex, clearing both structures together
+    /// so they can't end up desynced.
+    fn handle_poison(&self, e: PoisonError<MutexGuard<'_, LruCache<u64, ()>>>, guild_id: u64) {
         tracing::error!("LRU lock poisoned, attempting recovery...");
 
-        // Get the guard despite poisoning and clear the LRU
         let mut lru = e.into_inner();
         lru.clear();
-
-        // Re-insert this entry as the first one
+        self.cache.clear();
         lru.push(guild_id, ());
 
-        tracing::warn!("LRU cache cleared and reset. Cache state restored.");
+        tracing::warn!("Cache and LRU cleared and reset after poison recovery.");
     }
 }
